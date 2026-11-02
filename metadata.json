@@ -1,0 +1,6 @@
+{
+  "name": "SP MTA - Surat Penawaran Harga",
+  "description": "Aplikasi PWA khusus Android untuk membuat, mengelola, mencetak PDF A4 resmi, dan membagikan Surat Penawaran Harga CV. MULIA TEKHNIK ABADI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

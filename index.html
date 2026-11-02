@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>SP MTA - Surat Penawaran Harga</title>
+    <meta name="description" content="Aplikasi PWA khusus Android untuk membuat, mengelola, mencetak PDF A4 resmi, dan membagikan Surat Penawaran Harga CV. MULIA TEKHNIK ABADI." />
+    <meta name="theme-color" content="#0b223d" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="SP MTA" />
+    
+    <link rel="icon" type="image/svg+xml" href="/icon.svg" />
+    <link rel="icon" type="image/png" sizes="64x64" href="/favicon.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    
+    <meta property="og:title" content="SP MTA - Surat Penawaran Harga" />
+    <meta property="og:description" content="Aplikasi PWA Surat Penawaran Harga CV. MULIA TEKHNIK ABADI." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Suppress harmless Vite HMR WebSocket connection errors in sandbox/iframe environment -->
+    <script>
+      window.addEventListener('error', function (event) {
+        if (
+          event.message &&
+          (event.message.includes('WebSocket') ||
+            event.message.includes('createWebSocketModuleRunnerTransport') ||
+            event.message.includes('@vite/client'))
+        ) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      });
+      window.addEventListener('unhandledrejection', function (event) {
+        if (
+          event.reason &&
+          (String(event.reason).includes('WebSocket') ||
+            String(event.reason).includes('createWebSocketModuleRunnerTransport'))
+        ) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+        }
+      });
+    </script>
+
+    <!-- Google Fonts for formal document rendering (Times New Roman lookalike: Tinos / Times New Roman serif) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Tinos:ital,wght@0,400;0,700;1,400;1,700&display=swap" rel="stylesheet">
+  </head>
+  <body class="bg-slate-100 text-slate-800 antialiased selection:bg-blue-600 selection:text-white overscroll-none">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
