@@ -18,12 +18,18 @@ import {
   RefreshCw,
   Edit3,
   FileCheck2,
-  ArrowRight
+  ArrowRight,
+  Mic,
+  MicOff,
+  Send,
+  Undo2,
+  MessageSquare
 } from 'lucide-react';
 import type { CompanySettings, Customer, LetterData, OfferItem } from '../types/index.ts';
 import { formatNumberIndo } from '../services/pdfGenerator.ts';
 import { LetterPreview } from './LetterPreview.tsx';
 import { saveDraftLetter, saveLetter } from '../services/db.ts';
+import { formatLetterNumber, extractSequenceNumber } from '../utils/letterNumber.ts';
 
 interface FormTambahSuratProps {
   initialLetter?: LetterData | null;
@@ -60,6 +66,18 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
   const [aiError, setAiError] = useState<string | null>(null);
   const [showConfirmOverwrite, setShowConfirmOverwrite] = useState(false);
 
+  // AI Revision (Chat & Voice) States
+  const [revisionPrompt, setRevisionPrompt] = useState('');
+  const [isRevisingAI, setIsRevisingAI] = useState(false);
+  const [isListeningVoice, setIsListeningVoice] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(true);
+  const [previousParagraphs, setPreviousParagraphs] = useState<{
+    opening: string;
+    closing: string;
+  } | null>(null);
+  const [showRevisionSuccess, setShowRevisionSuccess] = useState(false);
+  const recognitionRef = useRef<any>(null);
+
   // Auto-saved draft indicator
   const [lastAutoSavedTime, setLastAutoSavedTime] = useState<string>('');
 
@@ -68,16 +86,8 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
 
   const createInitialState = (): LetterData => {
     if (initialLetter) return { ...initialLetter };
-    const currentYear = new Date().getFullYear();
-    const currentMonth = String(new Date().getMonth() + 1).padStart(2, '0');
     const seqNum = settings.nextSequenceNumber ?? 16;
-    const formattedSeq = String(seqNum).padStart(3, '0');
-    const defaultNumber = settings.numberFormat
-      ? settings.numberFormat
-          .replace('{seq}', formattedSeq)
-          .replace('{month}', currentMonth)
-          .replace('{year}', String(currentYear))
-      : `${formattedSeq}/${currentMonth}/MTA/${currentYear}`;
+    const defaultNumber = formatLetterNumber(seqNum, todayStr, settings.numberFormat);
 
     return {
       id: `letter_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -126,12 +136,32 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
   const formDataRef = useRef<LetterData>(formData);
   formDataRef.current = formData;
 
+  // Check Web Speech API availability on mount
+  useEffect(() => {
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) {
+      setVoiceSupported(false);
+    }
+  }, []);
+
   // Sync if initialLetter prop updates
   useEffect(() => {
     if (initialLetter) {
       setFormData({ ...initialLetter });
     }
   }, [initialLetter]);
+
+  // Synchronize letterNumber automatically with settings sequence if creating a new unsaved letter
+  useEffect(() => {
+    if (!initialLetter && !formData.subject.trim() && !formData.companyName.trim()) {
+      const seq = settings.nextSequenceNumber ?? 16;
+      const syncedNumber = formatLetterNumber(seq, formData.letterDate, settings.numberFormat);
+      setFormData((prev) => ({
+        ...prev,
+        letterNumber: syncedNumber,
+      }));
+    }
+  }, [settings.nextSequenceNumber, settings.numberFormat, initialLetter]);
 
   // REQUIREMENT 2: AUTO-SAVE AS DRAFT ON ACCIDENTAL BACK OR EXIT
   // 1. Debounced background auto-save to IndexedDB as Draft
@@ -369,6 +399,156 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
     }
   };
 
+  // Synchronize Letter Date & Letter Number
+  const handleDateChange = (newDate: string) => {
+    const seq = extractSequenceNumber(formData.letterNumber) ?? (settings.nextSequenceNumber ?? 16);
+    const updatedNum = formatLetterNumber(seq, newDate, settings.numberFormat);
+    setFormData((prev) => ({
+      ...prev,
+      letterDate: newDate,
+      letterNumber: updatedNum,
+    }));
+  };
+
+  // Explicit Sync with Settings Sequence Number
+  const handleSyncSequenceNumber = () => {
+    const seq = settings.nextSequenceNumber ?? 16;
+    const synced = formatLetterNumber(seq, formData.letterDate, settings.numberFormat);
+    setFormData((prev) => ({
+      ...prev,
+      letterNumber: synced,
+    }));
+    onToast(`Nomor surat disinkronkan ke No. Urut #${seq} dari Pengaturan!`);
+  };
+
+  // Voice recording toggle via Web Speech API
+  const toggleVoiceRecording = () => {
+    const SpeechRec = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRec) {
+      onToast('Perekaman suara langsung tidak didukung browser ini. Silakan ketik instruksi revisi pada kolom chat.');
+      return;
+    }
+
+    if (isListeningVoice) {
+      if (recognitionRef.current) {
+        recognitionRef.current.stop();
+      }
+      setIsListeningVoice(false);
+      return;
+    }
+
+    try {
+      const recognition = new SpeechRec();
+      recognition.lang = 'id-ID';
+      recognition.continuous = false;
+      recognition.interimResults = false;
+
+      recognition.onstart = () => {
+        setIsListeningVoice(true);
+        onToast('🎤 Mendengarkan... Silakan katakan instruksi revisi Anda');
+      };
+
+      recognition.onresult = (event: any) => {
+        const transcript = event?.results?.[0]?.[0]?.transcript;
+        if (transcript) {
+          setRevisionPrompt((prev) => (prev ? `${prev} ${transcript}` : transcript));
+          onToast(`Suara terdeteksi: "${transcript}"`);
+        }
+      };
+
+      recognition.onerror = (event: any) => {
+        console.warn('Speech recognition error', event?.error);
+        setIsListeningVoice(false);
+        if (event?.error !== 'no-speech') {
+          onToast('Perekaman suara: ' + (event?.error || 'terjadi kendala'));
+        }
+      };
+
+      recognition.onend = () => {
+        setIsListeningVoice(false);
+      };
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (err: any) {
+      console.warn('Speech recognition failed to start', err);
+      setIsListeningVoice(false);
+      onToast('Izin mikrofon diperlukan untuk merekam suara.');
+    }
+  };
+
+  // AI Revision (Chat / Voice) Execution
+  const handleExecuteRevision = async (instructionToUse?: string) => {
+    const promptToUse = (instructionToUse || revisionPrompt).trim();
+    if (!promptToUse) {
+      onToast('Ketik revisi atau tekan tombol mic untuk bicara');
+      return;
+    }
+
+    if (isListeningVoice && recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListeningVoice(false);
+    }
+
+    setIsRevisingAI(true);
+    setAiError(null);
+
+    // Save previous state for Undo
+    setPreviousParagraphs({
+      opening: formData.openingParagraph,
+      closing: formData.closingParagraph,
+    });
+
+    try {
+      const res = await fetch('/api/revise-letter-content', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          currentOpening: formData.openingParagraph,
+          currentClosing: formData.closingParagraph,
+          instruction: promptToUse,
+          perihal: formData.subject,
+          recipientName: formData.recipientName,
+          companyName: formData.companyName,
+          items: formData.items,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Gagal merevisi narasi surat');
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        openingParagraph: data.opening,
+        closingParagraph: data.closing,
+      }));
+
+      setRevisionPrompt('');
+      setShowRevisionSuccess(true);
+      setTimeout(() => setShowRevisionSuccess(false), 4000);
+      onToast('✅ Kalimat surat berhasil direvisi sesuai instruksi!');
+    } catch (err: any) {
+      console.warn('Revision error:', err);
+      setAiError(err.message || 'Gagal merevisi kalimat dengan AI. Anda dapat mengedit teks langsung.');
+    } finally {
+      setIsRevisingAI(false);
+    }
+  };
+
+  const handleUndoRevision = () => {
+    if (previousParagraphs) {
+      setFormData((prev) => ({
+        ...prev,
+        openingParagraph: previousParagraphs.opening,
+        closingParagraph: previousParagraphs.closing,
+      }));
+      setPreviousParagraphs(null);
+      onToast('Perubahan kalimat berhasil dibatalkan (Undo)');
+    }
+  };
+
   // Save Document
   const handleSaveDocument = async () => {
     if (!formData.subject.trim()) {
@@ -447,32 +627,59 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
         <div className="space-y-4">
           {/* SECTION A: IDENTITAS SURAT */}
           <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs border border-slate-200/80">
-            <h2 className="text-sm font-bold text-[#0b223d] uppercase tracking-wider mb-3.5 flex items-center gap-2">
-              <span className="w-2 h-4 rounded-full bg-blue-600"></span>
-              A. Identitas Surat
-            </h2>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3.5 pb-2.5 border-b border-slate-100">
+              <h2 className="text-sm font-bold text-[#0b223d] uppercase tracking-wider flex items-center gap-2">
+                <span className="w-2 h-4 rounded-full bg-blue-600"></span>
+                A. Identitas Surat
+              </h2>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-blue-900 bg-blue-50 border border-blue-200/80 px-2.5 py-1 rounded-lg flex items-center gap-1 shadow-2xs">
+                  <span>No. Urut:</span>
+                  <span className="text-blue-600 font-extrabold">#{settings.nextSequenceNumber ?? 16}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={handleSyncSequenceNumber}
+                  className="flex items-center gap-1 text-[11px] font-semibold text-blue-700 hover:text-blue-900 bg-blue-50 hover:bg-blue-100/80 border border-blue-200 px-2.5 py-1 rounded-lg transition active:scale-95 shadow-2xs"
+                  title="Sinkronkan nomor surat dengan no. urut di Pengaturan"
+                >
+                  <RefreshCw className="w-3 h-3 text-blue-600" />
+                  <span>Sinkronkan No. Urut</span>
+                </button>
+              </div>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Nomor Surat <span className="text-red-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-slate-700">
+                    Nomor Surat <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600 inline" />
+                    Otomatis Tersinkron
+                  </span>
+                </div>
                 <input
                   type="text"
                   value={formData.letterNumber}
                   onChange={(e) => setFormData({ ...formData, letterNumber: e.target.value })}
                   placeholder="016/10/MTA/2026"
-                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50/50 text-slate-800 font-medium"
+                  className="w-full px-3 py-2.5 rounded-xl border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-blue-50/20 text-slate-800 font-bold"
                 />
               </div>
 
               <div>
-                <label className="block font-semibold text-slate-700 mb-1">
-                  Tanggal Surat <span className="text-red-500">*</span>
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block font-semibold text-slate-700">
+                    Tanggal Surat <span className="text-red-500">*</span>
+                  </label>
+                  <span className="text-[10px] text-slate-400">Sinkron ke no. surat</span>
+                </div>
                 <input
                   type="date"
                   value={formData.letterDate}
-                  onChange={(e) => setFormData({ ...formData, letterDate: e.target.value })}
+                  onChange={(e) => handleDateChange(e.target.value)}
                   className="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50/50 text-slate-800 font-medium"
                 />
               </div>
@@ -1011,37 +1218,39 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
             </div>
           </div>
 
-          {/* REQUIREMENT 1: TOMBOL GENERATE ISI SURAT DENGAN AI (TEPAT DI BAWAH RINGKASAN PERHITUNGAN) */}
+          {/* SECTION F: FITUR AI PEMBUAT & REVISI ISI SURAT */}
           <div className="bg-gradient-to-br from-indigo-950 via-[#0b223d] to-slate-900 text-white rounded-2xl p-4 sm:p-5 shadow-lg border border-indigo-800/40">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 pb-3 border-b border-white/10">
-              <div>
-                <div className="flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-amber-300 animate-spin-slow" />
-                  <h3 className="text-sm font-bold tracking-wide">
-                    F. Fitur AI Pembuat Isi Surat
+            {/* Header with Compact Generate Button */}
+            <div className="flex flex-col xs:flex-row xs:items-center justify-between gap-2.5 mb-3 pb-2.5 border-b border-white/10">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+                <div>
+                  <h3 className="text-xs sm:text-sm font-bold tracking-wide">
+                    F. Isi Narasi Surat & Asisten AI
                   </h3>
+                  <p className="text-[10px] text-sky-200/80">
+                    Pembuka & penutup formal resmi MTA
+                  </p>
                 </div>
-                <p className="text-[11px] text-sky-200 mt-0.5">
-                  Menyusun pembuka & penutup surat formal profesional sesuai transaksi di atas
-                </p>
               </div>
 
-              {/* GENERATE / PERBARUI ISI SURAT DENGAN AI BUTTON */}
+              {/* COMPACT GENERATE BUTTON (Tidak Terlalu Besar) */}
               <button
                 type="button"
-                disabled={isGeneratingAI}
+                disabled={isGeneratingAI || isRevisingAI}
                 onClick={requestAIGeneration}
-                className="flex items-center justify-center gap-2 bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 text-xs font-extrabold px-5 py-3 rounded-xl shadow-md transition active:scale-95 disabled:opacity-50"
+                className="self-start xs:self-auto flex items-center gap-1.5 bg-gradient-to-r from-amber-400 to-amber-300 hover:from-amber-300 hover:to-amber-200 active:scale-95 text-slate-950 text-xs font-bold px-3 py-1.5 rounded-lg shadow-xs transition disabled:opacity-50"
+                title="Generate otomatis narasi pembuka dan penutup dengan AI"
               >
                 {isGeneratingAI ? (
                   <>
-                    <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
-                    <span>Menyusun Narasi dengan AI...</span>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-slate-950" />
+                    <span>Menyusun AI...</span>
                   </>
                 ) : (
                   <>
-                    <Sparkles className="w-4 h-4 text-slate-950" />
-                    <span>GENERATE / PERBARUI ISI SURAT DENGAN AI</span>
+                    <Sparkles className="w-3.5 h-3.5 text-slate-950" />
+                    <span>Generate AI</span>
                   </>
                 )}
               </button>
@@ -1064,14 +1273,14 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
                   <button
                     type="button"
                     onClick={executeAIGeneration}
-                    className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-3.5 py-1.5 rounded-lg text-xs"
+                    className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold px-3 py-1 rounded-lg text-xs"
                   >
                     Ya, Perbarui dengan AI
                   </button>
                   <button
                     type="button"
                     onClick={() => setShowConfirmOverwrite(false)}
-                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3.5 py-1.5 rounded-lg text-xs"
+                    className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1 rounded-lg text-xs"
                   >
                     Batal
                   </button>
@@ -1080,37 +1289,147 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
             )}
 
             {/* Editable Paragraph Textareas */}
-            <div className="space-y-3.5 text-xs">
+            <div className="space-y-3 text-xs">
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-sky-200 font-semibold">
-                    Paragraf Pembuka Surat (Bisa Diedit Manual):
+                    Paragraf Pembuka Surat:
                   </label>
-                  <span className="text-[10px] text-sky-300/80">Hasil AI dapat diubah langsung</span>
+                  <span className="text-[10px] text-sky-300/80">Bisa diedit langsung</span>
                 </div>
                 <textarea
                   rows={2}
                   value={formData.openingParagraph}
                   onChange={(e) => setFormData({ ...formData, openingParagraph: e.target.value })}
                   placeholder="Bersama ini kami mengajukan surat penawaran harga..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/10 text-white placeholder-sky-300/40 border border-white/20 focus:outline-none focus:ring-2 focus:ring-amber-400 leading-relaxed font-sans"
+                  className="w-full px-3 py-2 rounded-xl bg-white/10 text-white placeholder-sky-300/40 border border-white/20 focus:outline-none focus:ring-2 focus:ring-amber-400 leading-relaxed font-sans text-xs"
                 />
               </div>
 
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label className="text-sky-200 font-semibold">
-                    Paragraf Penutup Surat (Bisa Diedit Manual):
+                    Paragraf Penutup Surat:
                   </label>
-                  <span className="text-[10px] text-sky-300/80">Hasil AI dapat diubah langsung</span>
+                  <span className="text-[10px] text-sky-300/80">Bisa diedit langsung</span>
                 </div>
                 <textarea
                   rows={3}
                   value={formData.closingParagraph}
                   onChange={(e) => setFormData({ ...formData, closingParagraph: e.target.value })}
                   placeholder="Demikian Penawaran harga ini kami sampaikan..."
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-white/10 text-white placeholder-sky-300/40 border border-white/20 focus:outline-none focus:ring-2 focus:ring-amber-400 leading-relaxed font-sans"
+                  className="w-full px-3 py-2 rounded-xl bg-white/10 text-white placeholder-sky-300/40 border border-white/20 focus:outline-none focus:ring-2 focus:ring-amber-400 leading-relaxed font-sans text-xs"
                 />
+              </div>
+            </div>
+
+            {/* REVISI KALIMAT AI DENGAN CHAT & VOICE */}
+            <div className="mt-3.5 pt-3 border-t border-white/10 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300">
+                  <MessageSquare className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Revisi Hasil Kalimat AI (Ketik / Klik Voice)</span>
+                </div>
+                {previousParagraphs && (
+                  <button
+                    type="button"
+                    onClick={handleUndoRevision}
+                    className="flex items-center gap-1 text-[11px] text-amber-300 hover:text-amber-200 bg-amber-500/15 hover:bg-amber-500/25 px-2 py-0.5 rounded-lg border border-amber-400/30 transition active:scale-95"
+                    title="Batalkan revisi dan kembalikan teks sebelumnya"
+                  >
+                    <Undo2 className="w-3 h-3" />
+                    <span>Urungkan (Undo)</span>
+                  </button>
+                )}
+              </div>
+
+              {/* Listening Voice Active Feedback */}
+              {isListeningVoice && (
+                <div className="flex items-center gap-2 p-2 rounded-xl bg-rose-500/25 border border-rose-400/40 text-rose-200 text-xs animate-pulse">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping"></span>
+                  <span className="font-semibold">Mendengarkan suara Anda... Silakan ucapkan revisi (contoh: "buat lebih ringkas").</span>
+                </div>
+              )}
+
+              {showRevisionSuccess && (
+                <div className="flex items-center gap-1.5 p-2 rounded-xl bg-emerald-500/20 border border-emerald-400/40 text-emerald-200 text-xs">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>Kalimat surat berhasil diperbarui oleh AI sesuai instruksi Anda.</span>
+                </div>
+              )}
+
+              {/* Chat Input & Mic Row */}
+              <div className="flex items-center gap-1.5">
+                {/* Voice Mic Button */}
+                <button
+                  type="button"
+                  onClick={toggleVoiceRecording}
+                  disabled={isRevisingAI}
+                  className={`p-2.5 rounded-xl transition flex items-center justify-center shrink-0 shadow-sm active:scale-95 ${
+                    isListeningVoice
+                      ? 'bg-rose-600 text-white ring-2 ring-rose-400'
+                      : 'bg-white/15 hover:bg-white/25 text-white border border-white/20'
+                  }`}
+                  title={isListeningVoice ? 'Hentikan rekaman' : 'Klik voice untuk bicara (Mic)'}
+                >
+                  {isListeningVoice ? (
+                    <MicOff className="w-4 h-4 text-white animate-pulse" />
+                  ) : (
+                    <Mic className="w-4 h-4 text-amber-300" />
+                  )}
+                </button>
+
+                {/* Text prompt input */}
+                <input
+                  type="text"
+                  value={revisionPrompt}
+                  onChange={(e) => setRevisionPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleExecuteRevision();
+                    }
+                  }}
+                  placeholder="Ketik revisi atau klik mic (contoh: 'lebih singkat', 'tambah garansi 1 thn')..."
+                  className="flex-1 px-3 py-2 rounded-xl bg-white/10 text-white placeholder-sky-300/40 border border-white/20 focus:outline-none focus:ring-2 focus:ring-amber-400 text-xs font-sans"
+                />
+
+                {/* Send button */}
+                <button
+                  type="button"
+                  disabled={isRevisingAI || !revisionPrompt.trim()}
+                  onClick={() => handleExecuteRevision()}
+                  className="bg-sky-500 hover:bg-sky-400 disabled:opacity-40 text-white font-bold p-2.5 rounded-xl transition active:scale-95 shadow-sm shrink-0 flex items-center justify-center"
+                  title="Kirim instruksi revisi ke AI"
+                >
+                  {isRevisingAI ? (
+                    <RefreshCw className="w-4 h-4 animate-spin text-white" />
+                  ) : (
+                    <Send className="w-4 h-4 text-white" />
+                  )}
+                </button>
+              </div>
+
+              {/* Quick Revision Prompt Chips */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                <span className="text-[10px] text-sky-300/70 font-semibold mr-0.5">Pilihan Cepat:</span>
+                {[
+                  { label: '⚡ Lebih Singkat', prompt: 'Persingkat pembuka dan penutup menjadi to-the-point dan padat' },
+                  { label: '⏳ Berlaku 14 Hari', prompt: 'Tambahkan penegasan bahwa penawaran harga ini berlaku selama 14 hari kerja' },
+                  { label: '🛡️ Garansi Resmi', prompt: 'Tambahkan jaminan garansi resmi unit dan garansi pengerjaan rapi' },
+                  { label: '👔 Sangat Formal', prompt: 'Gunakan pilihan kata bahasa Indonesia bisnis sangat formal dan representatif' },
+                  { label: '📍 Bebas Biaya Survei', prompt: 'Sertakan catatan bahwa konsultasi awal dan survei teknis bebas biaya' },
+                ].map((chip) => (
+                  <button
+                    key={chip.label}
+                    type="button"
+                    disabled={isRevisingAI}
+                    onClick={() => handleExecuteRevision(chip.prompt)}
+                    className="text-[10px] bg-white/10 hover:bg-white/20 active:scale-95 text-sky-200 px-2 py-1 rounded-lg border border-white/15 transition"
+                  >
+                    {chip.label}
+                  </button>
+                ))}
               </div>
             </div>
           </div>

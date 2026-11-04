@@ -1,13 +1,32 @@
 import React, { useState } from 'react';
-import { Download, WifiOff, ShieldCheck, HelpCircle, Coffee, Copy, Check, Heart, X } from 'lucide-react';
+import {
+  Download,
+  WifiOff,
+  Coffee,
+  Copy,
+  Check,
+  X,
+  Menu,
+  Heart,
+} from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall.ts';
 import { useOnlineStatus } from '../hooks/useOnlineStatus.ts';
+import { SyncStatusBar } from './SyncStatusBar.tsx';
 
-export const Header: React.FC = () => {
-  const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
+export type AppMode = 'dashboard' | 'penawaran' | 'bast' | 'invoice' | 'gaji';
+
+interface HeaderProps {
+  appMode: AppMode;
+  onModeChange: (mode: AppMode) => void;
+  onOpenSidebar?: () => void;
+  onToast?: (msg: string) => void;
+}
+
+export const Header: React.FC<HeaderProps> = ({ appMode, onModeChange, onOpenSidebar, onToast }) => {
+  const { isInstallable, isInstalled, install, isIOS } = usePWAInstall();
   const isOnline = useOnlineStatus();
-  const [showIOSGuide, setShowIOSGuide] = useState(false);
   const [showCoffeeModal, setShowCoffeeModal] = useState(false);
+  const [showIOSGuide, setShowIOSGuide] = useState(false);
   const [isCopied, setIsCopied] = useState(false);
 
   const gopayNumber = '08179015181';
@@ -19,7 +38,6 @@ export const Header: React.FC = () => {
       setIsCopied(true);
       setTimeout(() => setIsCopied(false), 2500);
     } catch {
-      // Fallback
       const ta = document.createElement('textarea');
       ta.value = gopayNumber;
       document.body.appendChild(ta);
@@ -32,75 +50,78 @@ export const Header: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-[#0b223d] text-white shadow-md border-b border-blue-900/60">
-      <div className="max-w-4xl mx-auto px-3 sm:px-4 py-2.5 flex items-center justify-between">
-        {/* Brand Logo & Name */}
-        <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-blue-700 to-sky-500 p-0.5 flex items-center justify-center shadow-inner">
-            <span className="font-extrabold text-sm tracking-wider text-white">MTA</span>
+    <header className="sticky top-0 z-40 bg-[#0b223d] text-white shadow-md border-b border-blue-900/60 w-full overflow-x-hidden">
+      <div className="max-w-5xl mx-auto px-2.5 sm:px-4 py-2 flex items-center justify-between gap-2">
+        {/* Left Side: Sidebar Hamburger + Back to Beranda + Brand */}
+        <div className="flex items-center gap-1.5 sm:gap-2">
+          {onOpenSidebar && (
+            <button
+              type="button"
+              onClick={onOpenSidebar}
+              className="p-1.5 text-slate-200 hover:text-white hover:bg-blue-800/80 rounded-lg transition"
+              title="Menu Sidebar"
+            >
+              <Menu className="w-5 h-5 stroke-[2.2]" />
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={() => onModeChange('dashboard')}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-800/90 hover:bg-blue-700 active:scale-95 text-white text-[11px] font-bold transition shadow-xs border border-blue-600/50"
+            title="Kembali ke Beranda"
+          >
+            <span>← Beranda</span>
+          </button>
+
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-700 to-sky-500 p-0.5 flex items-center justify-center shadow-inner shrink-0">
+            <span className="font-extrabold text-[10px] tracking-wider text-white">MTA</span>
           </div>
+
           <div>
-            <div className="flex items-center gap-1.5">
-              <h1 className="font-bold text-base tracking-wide leading-tight text-white">SP MTA</h1>
-              <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded bg-blue-900/80 text-sky-300 border border-sky-400/30">
-                PWA Android
-              </span>
-            </div>
-            <p className="text-[11px] text-sky-200/90 leading-none">CV. MULIA TEKHNIK ABADI</p>
+            <h1 className="font-bold text-xs sm:text-sm tracking-wide leading-tight text-white whitespace-nowrap">
+              {appMode === 'bast'
+                ? 'BAST'
+                : appMode === 'invoice'
+                ? 'INVOICE'
+                : appMode === 'gaji'
+                ? 'SLIP GAJI'
+                : 'SURAT PENAWARAN'}
+            </h1>
+            <p className="text-[9px] text-sky-200/90 leading-none">
+              CV. MULIA TEKHNIK ABADI
+            </p>
           </div>
         </div>
 
-        {/* Status Indicators, Bagi Kopi & PWA Install Button */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* FITUR BAGI KOPI (Pojok Kanan Atas) */}
+        {/* Right Controls: Sync Status Bar, Bagi Kopi & Install */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <SyncStatusBar onToast={onToast || (() => {})} />
+
           <button
             type="button"
             onClick={() => setShowCoffeeModal(true)}
-            className="flex items-center gap-1 bg-gradient-to-r from-amber-500 via-amber-400 to-orange-400 hover:from-amber-400 hover:to-orange-300 active:scale-95 text-slate-950 font-extrabold text-[11px] px-2.5 py-1.5 rounded-lg shadow-sm transition border border-amber-300/40"
-            title="Traktir Kopi untuk Pengembang"
+            className="flex items-center gap-1 bg-gradient-to-r from-amber-500 to-orange-400 active:scale-95 text-slate-950 font-black text-[10px] px-2 py-1 rounded-lg shadow-2xs border border-amber-300/40"
+            title="Traktir Kopi"
           >
-            <Coffee className="w-3.5 h-3.5 text-slate-950" />
-            <span className="hidden xs:inline">Bagi Kopi</span>
+            <Coffee className="w-3 h-3 text-slate-950" />
+            <span className="hidden xs:inline">Kopi</span>
           </button>
 
-          {!isOnline && (
-            <div className="flex items-center gap-1 bg-amber-500/90 text-slate-900 text-[11px] font-bold px-2 py-1 rounded-full shadow-sm animate-pulse">
-              <WifiOff className="w-3 h-3 text-slate-900" />
-              <span>Offline</span>
-            </div>
-          )}
-
-          {/* Android / Chromium Install Prompt */}
           {isInstallable && !isInstalled && (
             <button
               onClick={install}
-              className="flex items-center gap-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-sm transition active:scale-95"
-              title="Pasang aplikasi ke layar utama HP"
+              className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold px-2 py-1 rounded-lg active:scale-95"
+              title="Install"
             >
-              <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Install App</span>
+              <Download className="w-3 h-3" />
+              <span className="hidden sm:inline">Install</span>
             </button>
-          )}
-
-          {/* iOS Fallback Guide */}
-          {isIOS && !isInstalled && (
-            <button
-              onClick={() => setShowIOSGuide(true)}
-              className="flex items-center gap-1 bg-blue-800/80 hover:bg-blue-700 text-sky-200 text-xs font-medium px-2.5 py-1.5 rounded-lg border border-blue-600/50"
-            >
-              <HelpCircle className="w-3.5 h-3.5" />
-              <span>Install iOS</span>
-            </button>
-          )}
-
-          {isInstalled && (
-            <div className="hidden sm:flex items-center gap-1 text-[11px] text-emerald-300 bg-emerald-950/60 px-2 py-1 rounded border border-emerald-500/30">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>Terpasang</span>
-            </div>
           )}
         </div>
       </div>
+
+
 
       {/* MODAL BAGI KOPI (GoPay Jamhur) */}
       {showCoffeeModal && (
@@ -129,7 +150,7 @@ export const Header: React.FC = () => {
             {/* Modal Body */}
             <div className="py-4 space-y-3.5 text-xs text-center">
               <p className="text-slate-600 leading-relaxed text-[12px]">
-                Dukung terus pemeliharaan dan pengembangan aplikasi <strong>SP MTA</strong> dengan mentraktir secangkir kopi via GoPay:
+                Dukung terus pemeliharaan dan pengembangan aplikasi <strong>SP MTA & SLIP GAJI</strong> dengan mentraktir secangkir kopi via GoPay:
               </p>
 
               {/* GoPay Box */}

@@ -1,0 +1,215 @@
+{
+  "entities": {
+    "CompanySettings": {
+      "title": "CompanySettings",
+      "description": "Global company settings and profile configuration for CV. MULIA TEKHNIK ABADI",
+      "type": "object",
+      "properties": {
+        "companyName": { "type": "string", "maxLength": 200 },
+        "address": { "type": "string", "maxLength": 1000 },
+        "email": { "type": "string", "maxLength": 200 },
+        "phone": { "type": "string", "maxLength": 100 },
+        "signatoryName": { "type": "string", "maxLength": 200 },
+        "logoImage": { "type": "string", "maxLength": 1000000 },
+        "kopImage": { "type": "string", "maxLength": 1000000 },
+        "signatureImage": { "type": "string", "maxLength": 1000000 },
+        "stampImage": { "type": "string", "maxLength": 1000000 },
+        "numberFormat": { "type": "string", "maxLength": 100 },
+        "nextSequenceNumber": { "type": "number" },
+        "city": { "type": "string", "maxLength": 100 },
+        "defaultPpnPercent": { "type": "number" },
+        "tarifLemburPerJam": { "type": "number" },
+        "bankName": { "type": "string", "maxLength": 100 },
+        "bankAccountName": { "type": "string", "maxLength": 200 },
+        "bankAccountNumber": { "type": "string", "maxLength": 100 },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["companyName", "address", "signatoryName"]
+    },
+    "Letter": {
+      "title": "Letter",
+      "description": "Surat Penawaran Harga document entity",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "letterNumber": { "type": "string", "maxLength": 150 },
+        "letterDate": { "type": "string", "maxLength": 50 },
+        "attachment": { "type": "string", "maxLength": 100 },
+        "subject": { "type": "string", "maxLength": 500 },
+        "recipientName": { "type": "string", "maxLength": 200 },
+        "companyName": { "type": "string", "maxLength": 200 },
+        "address": { "type": "string", "maxLength": 1000 },
+        "city": { "type": "string", "maxLength": 100 },
+        "openingParagraph": { "type": "string", "maxLength": 2000 },
+        "closingParagraph": { "type": "string", "maxLength": 2000 },
+        "tradeInActive": { "type": "boolean" },
+        "discountActive": { "type": "boolean" },
+        "discountType": { "type": "string", "enum": ["nominal", "percent"] },
+        "discountValue": { "type": "number" },
+        "ppnActive": { "type": "boolean" },
+        "ppnPercent": { "type": "number" },
+        "status": { "type": "string", "enum": ["Draft", "Terkirim", "Diterima", "Ditolak"] },
+        "notes": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string", "maxLength": 100 },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "letterNumber", "letterDate", "companyName", "status", "createdAt", "updatedAt"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Client profile entity for auto-fill in documents",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "companyName": { "type": "string", "maxLength": 200 },
+        "recipientName": { "type": "string", "maxLength": 200 },
+        "address": { "type": "string", "maxLength": 1000 },
+        "city": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 200 },
+        "createdAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "companyName", "createdAt"]
+    },
+    "Bast": {
+      "title": "Bast",
+      "description": "Berita Acara Serah Terima (BAST) document entity",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "nomorBast": { "type": "string", "maxLength": 150 },
+        "nomorPo": { "type": "string", "maxLength": 150 },
+        "tanggalBast": { "type": "string", "maxLength": 50 },
+        "hariTerbilang": { "type": "string", "maxLength": 300 },
+        "pihakPertamaNama": { "type": "string", "maxLength": 200 },
+        "pihakPertamaJabatan": { "type": "string", "maxLength": 200 },
+        "pihakPertamaPerusahaan": { "type": "string", "maxLength": 200 },
+        "pihakPertamaAlamat": { "type": "string", "maxLength": 1000 },
+        "pihakKeduaNama": { "type": "string", "maxLength": 200 },
+        "pihakKeduaAlamat": { "type": "string", "maxLength": 1000 },
+        "tanggalMulai": { "type": "string", "maxLength": 50 },
+        "tanggalSelesai": { "type": "string", "maxLength": 50 },
+        "kota": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["Draft", "Selesai"] },
+        "letterIdRef": { "type": "string", "maxLength": 128 },
+        "createdAt": { "type": "string", "maxLength": 100 },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "nomorBast", "nomorPo", "tanggalBast", "pihakKeduaNama", "status", "createdAt", "updatedAt"]
+    },
+    "Invoice": {
+      "title": "Invoice",
+      "description": "Commercial Invoice document entity",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "invoiceNumber": { "type": "string", "maxLength": 150 },
+        "invoiceDate": { "type": "string", "maxLength": 50 },
+        "nomorPo": { "type": "string", "maxLength": 150 },
+        "companyName": { "type": "string", "maxLength": 200 },
+        "recipientName": { "type": "string", "maxLength": 200 },
+        "address": { "type": "string", "maxLength": 1000 },
+        "tradeInActive": { "type": "boolean" },
+        "tradeInName": { "type": "string", "maxLength": 200 },
+        "tradeInValue": { "type": "number" },
+        "discountActive": { "type": "boolean" },
+        "discountValue": { "type": "number" },
+        "ppnActive": { "type": "boolean" },
+        "ppnPercent": { "type": "number" },
+        "subtotal": { "type": "number" },
+        "total": { "type": "number" },
+        "terbilang": { "type": "string", "maxLength": 500 },
+        "bankName": { "type": "string", "maxLength": 100 },
+        "bankAccountName": { "type": "string", "maxLength": 200 },
+        "bankAccountNumber": { "type": "string", "maxLength": 100 },
+        "signatoryName": { "type": "string", "maxLength": 200 },
+        "status": { "type": "string", "enum": ["Lunas", "Belum Lunas", "Draft"] },
+        "createdAt": { "type": "string", "maxLength": 100 },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "invoiceNumber", "invoiceDate", "nomorPo", "companyName", "subtotal", "total", "status", "createdAt", "updatedAt"]
+    },
+    "Karyawan": {
+      "title": "Karyawan",
+      "description": "Master employee data entity for CV MTA",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "nama": { "type": "string", "maxLength": 200 },
+        "jabatan": { "type": "string", "maxLength": 100 },
+        "nik": { "type": "string", "maxLength": 50 },
+        "nomorSlipDefault": { "type": "string", "maxLength": 50 },
+        "gajiPokok": { "type": "number" },
+        "uangMakanHarian": { "type": "number" },
+        "telepon": { "type": "string", "maxLength": 50 },
+        "createdAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "nama", "jabatan", "nomorSlipDefault", "gajiPokok", "createdAt"]
+    },
+    "SlipGaji": {
+      "title": "SlipGaji",
+      "description": "Monthly employee payroll slip record",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "nomorSlip": { "type": "string", "maxLength": 50 },
+        "tanggal": { "type": "string", "maxLength": 50 },
+        "periodeBulan": { "type": "string", "maxLength": 50 },
+        "tahun": { "type": "number" },
+        "karyawanId": { "type": "string", "maxLength": 128 },
+        "nama": { "type": "string", "maxLength": 200 },
+        "jabatan": { "type": "string", "maxLength": 100 },
+        "nik": { "type": "string", "maxLength": 50 },
+        "gajiPokok": { "type": "number" },
+        "uangMakan": { "type": "number" },
+        "transport": { "type": "number" },
+        "thr": { "type": "number" },
+        "bonus": { "type": "number" },
+        "lemburan": { "type": "number" },
+        "jamLembur": { "type": "number" },
+        "masukKerja": { "type": "number" },
+        "pinjaman": { "type": "number" },
+        "bpjsKetenagakerjaan": { "type": "number" },
+        "pph21": { "type": "number" },
+        "lainLain": { "type": "number" },
+        "potonganUangMakan": { "type": "number" },
+        "totalPendapatan": { "type": "number" },
+        "totalPotongan": { "type": "number" },
+        "gajiBersih": { "type": "number" },
+        "createdAt": { "type": "string", "maxLength": 100 },
+        "updatedAt": { "type": "string", "maxLength": 100 }
+      },
+      "required": ["id", "nomorSlip", "tanggal", "periodeBulan", "tahun", "nama", "jabatan", "gajiBersih", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/settings/{settingsId}": {
+      "schema": "CompanySettings",
+      "description": "Global company settings document (e.g. mta_settings)"
+    },
+    "/letters/{letterId}": {
+      "schema": "Letter",
+      "description": "Surat Penawaran documents collection"
+    },
+    "/customers/{customerId}": {
+      "schema": "Customer",
+      "description": "Customer database collection"
+    },
+    "/basts/{bastId}": {
+      "schema": "Bast",
+      "description": "Berita Acara Serah Terima (BAST) records collection"
+    },
+    "/invoices/{invoiceId}": {
+      "schema": "Invoice",
+      "description": "Invoice documents collection"
+    },
+    "/karyawan/{karyawanId}": {
+      "schema": "Karyawan",
+      "description": "Employee master records collection"
+    },
+    "/slips/{slipId}": {
+      "schema": "SlipGaji",
+      "description": "Monthly payroll slip records collection"
+    }
+  }
+}

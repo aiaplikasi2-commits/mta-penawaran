@@ -296,100 +296,92 @@ export const RekapSurat: React.FC<RekapSuratProps> = ({
             return (
               <div
                 key={l.id}
-                className="bg-white rounded-2xl p-4 shadow-xs border border-slate-200 hover:border-blue-400 transition"
+                className="bg-white rounded-2xl p-3 sm:p-3.5 shadow-xs border border-slate-200 hover:border-blue-400 transition"
               >
-                {/* Top Info Header */}
-                <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-2.5">
-                  <div>
+                {/* Main Content: HANYA Nomor Surat, Nama PT, dan Nominal */}
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    {/* Nomor Surat & Tanggal & Status */}
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-bold text-xs text-[#0b223d] bg-slate-100 px-2 py-0.5 rounded-md">
+                      <span className="font-bold text-xs text-[#0b223d] bg-blue-50 border border-blue-200/60 px-2.5 py-0.5 rounded-lg">
                         {l.letterNumber || 'Draft'}
                       </span>
+                      <span className="text-[11px] text-slate-400">
+                        {formatIndoDate(l.letterDate)}
+                      </span>
                       <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${getStatusBadge(
+                        className={`text-[10px] font-bold px-2 py-0.2 rounded-full border ${getStatusBadge(
                           l.status
                         )}`}
                       >
                         {l.status}
                       </span>
                     </div>
-                    <div className="text-[11px] text-slate-400 mt-1">
-                      {formatIndoDate(l.letterDate)}
-                    </div>
+
+                    {/* Nama PT (Pelanggan) */}
+                    <h3 className="font-bold text-sm sm:text-base text-slate-900 mt-1.5 truncate">
+                      {l.companyName || '(Pelanggan Tanpa Nama)'}
+                    </h3>
                   </div>
 
-                  <div className="text-right">
-                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">Total Nilai</span>
-                    <span className="text-sm font-extrabold text-blue-900">
+                  {/* Nominal Total */}
+                  <div className="text-right shrink-0">
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block">
+                      Nominal
+                    </span>
+                    <span className="text-sm sm:text-base font-extrabold text-blue-900 font-mono">
                       Rp {formatNumberIndo(letterGrandTotal)}
                     </span>
                   </div>
                 </div>
 
-                {/* Content Details */}
-                <div className="py-2.5 space-y-1">
-                  <div className="text-xs font-bold text-slate-900">
-                    {l.companyName || '(Pelanggan Tanpa Nama)'}
-                    {l.recipientName ? ` — ${l.recipientName}` : ''}
-                  </div>
-                  <div className="text-xs text-slate-600 line-clamp-2">
-                    {l.subject || '(Tidak ada perihal)'}
-                  </div>
-                  <div className="text-[11px] text-slate-400 flex items-center gap-2">
-                    <span>{l.items.length} Rincian Barang/Jasa</span>
-                    {l.tradeInActive && <span className="text-amber-600">• Trade In Aktif</span>}
-                    {l.discountActive && <span className="text-blue-600">• Diskon Aktif</span>}
-                    {l.ppnActive && <span className="text-emerald-600">• PPN Aktif</span>}
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="border-t border-slate-100 pt-2.5 flex items-center justify-between gap-1 flex-wrap">
-                  <div className="flex items-center gap-1">
+                {/* Action Buttons: Semua Tombol Berfungsi Penuh */}
+                <div className="border-t border-slate-100 mt-2.5 pt-2.5 flex items-center justify-between gap-1.5 flex-wrap">
+                  <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => onPreviewLetter(l)}
-                      className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-lg transition"
-                      title="Lihat Detail & Preview"
+                      className="flex items-center gap-1 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 text-xs font-semibold px-2.5 py-1.5 rounded-xl transition"
+                      title="Lihat Detail & Preview PDF"
                     >
-                      <Eye className="w-3.5 h-3.5" />
+                      <Eye className="w-3.5 h-3.5 text-slate-600" />
                       <span>Preview</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => onEditLetter(l)}
-                      className="flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-blue-200 transition"
-                      title="Edit Surat"
+                      className="flex items-center gap-1 bg-blue-50 hover:bg-blue-100 active:scale-95 text-blue-800 text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-blue-200 transition"
+                      title="Edit Surat Penawaran"
                     >
-                      <Edit className="w-3.5 h-3.5" />
+                      <Edit className="w-3.5 h-3.5 text-blue-700" />
                       <span>Edit</span>
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     <button
                       type="button"
                       onClick={() => onDownloadLetter(l)}
-                      className="flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg transition"
-                      title="Download PDF"
+                      className="flex items-center gap-1 bg-slate-900 hover:bg-slate-800 active:scale-95 text-white text-xs font-semibold px-2.5 py-1.5 rounded-xl transition shadow-2xs"
+                      title="Unduh File PDF Resmi"
                     >
                       <Download className="w-3.5 h-3.5 text-sky-400" />
-                      <span className="hidden sm:inline">PDF</span>
+                      <span>PDF</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => onShareLetter(l)}
-                      className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-2.5 py-1.5 rounded-lg transition"
-                      title="Bagikan Surat"
+                      className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white text-xs font-semibold px-2.5 py-1.5 rounded-xl transition shadow-2xs"
+                      title="Bagikan Surat via WhatsApp / Email"
                     >
                       <Share2 className="w-3.5 h-3.5" />
-                      <span className="hidden sm:inline">Bagikan</span>
+                      <span>Bagikan</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => setDeleteCandidateId(l.id)}
-                      className="p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700 rounded-lg transition ml-1"
-                      title="Hapus Surat"
+                      className="p-1.5 text-red-500 hover:bg-red-50 hover:text-red-700 active:scale-95 rounded-xl transition border border-red-200/50"
+                      title="Hapus Surat Penawaran"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

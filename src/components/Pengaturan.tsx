@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Settings,
   Building,
@@ -12,7 +12,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   HelpCircle,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Stamp,
+  FileSignature,
+  Clock,
+  Sparkles,
 } from 'lucide-react';
 import type { CompanySettings, BackupData } from '../types/index.ts';
 import { exportBackupJSON, restoreBackupJSON, DEFAULT_SETTINGS } from '../services/db.ts';
@@ -30,8 +34,27 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
   onRefreshAllData,
   onToast,
 }) => {
-  const [formData, setFormData] = useState<CompanySettings>({ ...settings });
+  const [formData, setFormData] = useState<CompanySettings>({
+    ...DEFAULT_SETTINGS,
+    ...settings,
+    logoImage: settings.logoImage || '/default-logo.png',
+    kopImage: settings.kopImage || '/default-kop.png',
+    signatureImage: settings.signatureImage || '/default-ttd-stempel.png',
+    tarifLemburPerJam: settings.tarifLemburPerJam ?? 12000,
+  });
   const [isSaving, setIsSaving] = useState(false);
+
+  // Synchronize when settings prop changes
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...DEFAULT_SETTINGS,
+      ...settings,
+      logoImage: settings.logoImage || prev.logoImage || '/default-logo.png',
+      kopImage: settings.kopImage || prev.kopImage || '/default-kop.png',
+      signatureImage: settings.signatureImage || prev.signatureImage || '/default-ttd-stempel.png',
+      tarifLemburPerJam: settings.tarifLemburPerJam ?? prev.tarifLemburPerJam ?? 12000,
+    }));
+  }, [settings]);
 
   // Restore States
   const [restoreModalOpen, setRestoreModalOpen] = useState(false);
@@ -44,6 +67,8 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
   } | null>(null);
   const [restoreError, setRestoreError] = useState<string | null>(null);
 
+  // File Inputs Refs
+  const logoInputRef = useRef<HTMLInputElement>(null);
   const kopInputRef = useRef<HTMLInputElement>(null);
   const signInputRef = useRef<HTMLInputElement>(null);
   const stampInputRef = useRef<HTMLInputElement>(null);
@@ -52,7 +77,7 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
   // Generic Image Reader
   const handleImageUpload = (
     e: React.ChangeEvent<HTMLInputElement>,
-    field: 'kopImage' | 'signatureImage' | 'stampImage'
+    field: 'logoImage' | 'kopImage' | 'signatureImage' | 'stampImage'
   ) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -69,7 +94,13 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
         ...prev,
         [field]: base64,
       }));
-      onToast(`Gambar ${field === 'kopImage' ? 'KOP' : field === 'signatureImage' ? 'Tanda Tangan' : 'Stempel'} berhasil diunggah`);
+      const fieldNames: Record<string, string> = {
+        logoImage: 'Logo Perusahaan',
+        kopImage: 'KOP Surat',
+        signatureImage: 'Tanda Tangan & Stempel',
+        stampImage: 'Stempel',
+      };
+      onToast(`Gambar ${fieldNames[field] || 'gambar'} berhasil diunggah`);
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -80,7 +111,7 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
     setIsSaving(true);
     try {
       await onSaveSettings(formData);
-      onToast('Pengaturan perusahaan berhasil disimpan!');
+      onToast('Pengaturan perusahaan berhasil disimpan sebagai sumber data tunggal!');
     } catch {
       onToast('Gagal menyimpan pengaturan');
     } finally {
@@ -101,7 +132,7 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
         now.getDate()
       ).padStart(2, '0')}`;
       a.href = url;
-      a.download = `BACKUP_SP_MTA_${dateTag}.json`;
+      a.download = `BACKUP_MTA_${dateTag}.json`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
@@ -164,25 +195,25 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
   };
 
   return (
-    <div className="pb-24 pt-2 max-w-4xl mx-auto px-3 sm:px-4 space-y-4">
+    <div className="pb-28 pt-2 max-w-4xl mx-auto px-3 sm:px-4 space-y-4">
       <form onSubmit={handleSave} className="space-y-4">
-        {/* Top Header */}
+        {/* Top Header Card */}
         <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs border border-slate-200">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
             <div>
               <h2 className="text-base font-bold text-[#0b223d] flex items-center gap-2">
                 <Settings className="w-5 h-5 text-blue-600" />
-                <span>Pengaturan Aplikasi & Perusahaan</span>
+                <span>Pengaturan Tunggal Perusahaan MTA</span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Konfigurasi identitas resmi, KOP surat, tanda tangan, stempel, dan format penomoran
+                Satu sumber data terintegrasi untuk Surat Penawaran (SP MTA) &amp; Slip Gaji Karyawan
               </p>
             </div>
 
             <button
               type="submit"
               disabled={isSaving}
-              className="flex items-center justify-center gap-1.5 bg-[#0b223d] hover:bg-blue-900 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow transition active:scale-95 disabled:opacity-50"
+              className="flex items-center justify-center gap-1.5 bg-[#0b223d] hover:bg-blue-900 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-md transition active:scale-95 disabled:opacity-50"
             >
               <Save className="w-4 h-4" />
               <span>Simpan Pengaturan</span>
@@ -190,11 +221,233 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
           </div>
         </div>
 
-        {/* SECTION A: IDENTITAS PERUSAHAAN */}
+        {/* ============================================================== */}
+        {/* BAGIAN 1: UPLOAD GAMBAR RESMI (LOGO, KOP SURAT, STEMPEL/TTD) */}
+        {/* ============================================================== */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <h3 className="text-xs sm:text-sm font-bold text-[#0b223d] uppercase tracking-wider flex items-center gap-2">
+              <span className="w-2 h-4 rounded-full bg-blue-600"></span>
+              Gambar Resmi Perusahaan (Logo, KOP Surat, &amp; Stempel / TTD)
+            </h3>
+            <span className="text-[11px] text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full font-semibold border border-blue-200/60">
+              3 Upload Terpisah
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+            {/* UPLOADER 1: LOGO PERUSAHAAN (KHUSUS SLIP GAJI & APP) */}
+            <div className="bg-white rounded-2xl p-4 shadow-xs border border-slate-200 flex flex-col justify-between space-y-3">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                    <ImageIcon className="w-4 h-4 text-blue-600" />
+                    <span>1. Upload Logo Perusahaan</span>
+                  </div>
+                  {formData.logoImage && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, logoImage: '' })}
+                      className="text-red-500 hover:text-red-700 p-1"
+                      title="Hapus Logo"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <p className="text-[10.5px] text-slate-500 leading-tight">
+                  <strong className="text-blue-700">Khusus Slip Gaji:</strong> Hanya logo murni tanpa alamat / KOP surat.
+                </p>
+
+                {/* Preview Box */}
+                <div className="mt-2.5 p-3 rounded-xl border border-slate-200 bg-slate-50/80 h-28 flex items-center justify-center">
+                  {formData.logoImage ? (
+                    <img
+                      src={formData.logoImage}
+                      alt="Logo Perusahaan"
+                      className="max-h-20 max-w-full object-contain"
+                    />
+                  ) : (
+                    <div className="text-center text-slate-400">
+                      <ImageIcon className="w-7 h-7 mx-auto mb-1 opacity-40" />
+                      <span className="text-[10px]">Belum ada logo</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => logoInputRef.current?.click()}
+                  className="w-full flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-bold px-3 py-2 rounded-xl text-xs transition"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>{formData.logoImage ? 'Ganti Logo' : 'Upload Logo'}</span>
+                </button>
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e, 'logoImage')}
+                  className="hidden"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, logoImage: '/default-logo.png' })}
+                  className="w-full text-center text-[11px] text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50 py-1.5 rounded-xl transition"
+                >
+                  Gunakan Logo Standar MTA
+                </button>
+              </div>
+            </div>
+
+            {/* UPLOADER 2: KOP SURAT (KHUSUS SURAT PENAWARAN A4) */}
+            <div className="bg-white rounded-2xl p-4 shadow-xs border border-slate-200 flex flex-col justify-between space-y-3">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                    <FileText className="w-4 h-4 text-sky-600" />
+                    <span>2. Upload KOP Surat</span>
+                  </div>
+                  {formData.kopImage && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, kopImage: '' })}
+                      className="text-red-500 hover:text-red-700 p-1"
+                      title="Hapus KOP"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <p className="text-[10.5px] text-slate-500 leading-tight">
+                  <strong className="text-sky-700">Khusus Surat Penawaran A4:</strong> Header KOP resmi dengan garis pembatas.
+                </p>
+
+                {/* Preview Box */}
+                <div className="mt-2.5 p-3 rounded-xl border border-slate-200 bg-slate-50/80 h-28 flex items-center justify-center">
+                  {formData.kopImage ? (
+                    <img
+                      src={formData.kopImage}
+                      alt="KOP Surat"
+                      className="max-h-20 max-w-full object-contain"
+                    />
+                  ) : (
+                    <div className="text-center text-slate-400">
+                      <FileText className="w-7 h-7 mx-auto mb-1 opacity-40" />
+                      <span className="text-[10px]">Belum ada KOP</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => kopInputRef.current?.click()}
+                  className="w-full flex items-center justify-center gap-1.5 bg-sky-50 hover:bg-sky-100 text-sky-900 border border-sky-200 font-bold px-3 py-2 rounded-xl text-xs transition"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>{formData.kopImage ? 'Ganti KOP Surat' : 'Upload KOP Surat'}</span>
+                </button>
+                <input
+                  ref={kopInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e, 'kopImage')}
+                  className="hidden"
+                />
+
+                <button
+                  type="button"
+                  onClick={() => setFormData({ ...formData, kopImage: '/default-kop.png' })}
+                  className="w-full text-center text-[11px] text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50 py-1.5 rounded-xl transition"
+                >
+                  Gunakan KOP Standar MTA
+                </button>
+              </div>
+            </div>
+
+            {/* UPLOADER 3: STEMPEL & TANDA TANGAN (SURAT PENAWARAN & SLIP GAJI) */}
+            <div className="bg-white rounded-2xl p-4 shadow-xs border border-slate-200 flex flex-col justify-between space-y-3">
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
+                    <FileSignature className="w-4 h-4 text-emerald-600" />
+                    <span>3. Upload Stempel / TTD</span>
+                  </div>
+                  {formData.signatureImage && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData({ ...formData, signatureImage: '' })}
+                      className="text-red-500 hover:text-red-700 p-1"
+                      title="Hapus TTD/Stempel"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+                <p className="text-[10.5px] text-slate-500 leading-tight">
+                  <strong className="text-emerald-700">Tanda Tangan &amp; Stempel:</strong> Digunakan di Surat Penawaran &amp; Slip Gaji.
+                </p>
+
+                {/* Preview Box */}
+                <div className="mt-2.5 p-3 rounded-xl border border-slate-200 bg-slate-50/80 h-28 flex items-center justify-center">
+                  {formData.signatureImage ? (
+                    <img
+                      src={formData.signatureImage}
+                      alt="TTD & Stempel"
+                      className="max-h-20 max-w-full object-contain"
+                    />
+                  ) : (
+                    <div className="text-center text-slate-400">
+                      <FileSignature className="w-7 h-7 mx-auto mb-1 opacity-40" />
+                      <span className="text-[10px]">Belum ada TTD / Stempel</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-1.5 pt-1">
+                <button
+                  type="button"
+                  onClick={() => signInputRef.current?.click()}
+                  className="w-full flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-200 font-bold px-3 py-2 rounded-xl text-xs transition"
+                >
+                  <Upload className="w-3.5 h-3.5" />
+                  <span>{formData.signatureImage ? 'Ganti TTD / Stempel' : 'Upload Stempel / TTD'}</span>
+                </button>
+                <input
+                  ref={signInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e, 'signatureImage')}
+                  className="hidden"
+                />
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    setFormData({ ...formData, signatureImage: '/default-ttd-stempel.png' })
+                  }
+                  className="w-full text-center text-[11px] text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50 py-1.5 rounded-xl transition"
+                >
+                  Gunakan TTD Standar MTA
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ============================================================== */}
+        {/* BAGIAN 2: IDENTITAS PERUSAHAAN LENGKAP */}
+        {/* ============================================================== */}
         <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs border border-slate-200 space-y-3.5 text-xs">
           <h3 className="text-sm font-bold text-[#0b223d] uppercase tracking-wider flex items-center gap-2">
             <span className="w-2 h-4 rounded-full bg-blue-600"></span>
-            A. Identitas Perusahaan
+            Identitas Resmi Perusahaan
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -220,7 +473,7 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                 required
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50/50 text-slate-800"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50/50 text-slate-800 font-medium"
               />
             </div>
 
@@ -246,11 +499,11 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                 required
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50/50 text-slate-800"
+                className="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50/50 text-slate-800 font-medium"
               />
             </div>
 
-            <div className="sm:col-span-2">
+            <div>
               <label className="block font-semibold text-slate-700 mb-1">
                 Nama Penanggung Jawab Tanda Tangan <span className="text-red-500">*</span>
               </label>
@@ -262,204 +515,80 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                 className="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50/50 font-bold text-slate-900"
               />
             </div>
-          </div>
-        </div>
 
-        {/* SECTION B: KOP SURAT */}
-        <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs border border-slate-200 space-y-3 text-xs">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-[#0b223d] uppercase tracking-wider flex items-center gap-2">
-                <span className="w-2 h-4 rounded-full bg-blue-600"></span>
-                B. Gambar KOP Surat
-              </h3>
-              <p className="text-[11px] text-slate-500 mt-0.5">
-                Kop surat berada di bagian paling atas dokumen dengan ukuran proporsional
-              </p>
-            </div>
-            {formData.kopImage && (
-              <button
-                type="button"
-                onClick={() => setFormData({ ...formData, kopImage: '' })}
-                className="flex items-center gap-1 text-red-600 hover:text-red-700 text-xs font-semibold px-2.5 py-1 rounded-lg hover:bg-red-50"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-                <span>Hapus KOP</span>
-              </button>
-            )}
-          </div>
-
-          {/* Preview KOP */}
-          <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 min-h-24 flex items-center justify-center">
-            {formData.kopImage ? (
-              <img
-                src={formData.kopImage}
-                alt="Preview KOP Surat"
-                className="max-h-24 max-w-full object-contain"
-              />
-            ) : (
-              <div className="text-center text-slate-400 py-3">
-                <ImageIcon className="w-8 h-8 mx-auto mb-1 opacity-50" />
-                <span>Belum ada gambar KOP surat</span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              type="button"
-              onClick={() => kopInputRef.current?.click()}
-              className="flex items-center gap-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-semibold px-3 py-2 rounded-xl transition"
-            >
-              <Upload className="w-3.5 h-3.5" />
-              <span>{formData.kopImage ? 'Ganti KOP Surat' : 'Upload KOP Surat'}</span>
-            </button>
-            <input
-              ref={kopInputRef}
-              type="file"
-              accept="image/*"
-              onChange={(e) => handleImageUpload(e, 'kopImage')}
-              className="hidden"
-            />
-
-            <button
-              type="button"
-              onClick={() => setFormData({ ...formData, kopImage: '/default-kop.png' })}
-              className="flex items-center gap-1 text-slate-600 hover:text-slate-900 border border-slate-300 hover:bg-slate-50 px-3 py-2 rounded-xl transition"
-            >
-              <RotateCcw className="w-3.5 h-3.5" />
-              <span>Gunakan KOP Standar MTA</span>
-            </button>
-          </div>
-        </div>
-
-        {/* SECTION C & D: TANDA TANGAN & STEMPEL */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          {/* Tanda Tangan */}
-          <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs border border-slate-200 space-y-3 text-xs flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-bold text-[#0b223d] uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-2 h-4 rounded-full bg-blue-600"></span>
-                  C. Tanda Tangan
-                </h3>
-                {formData.signatureImage && (
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, signatureImage: '' })}
-                    className="text-red-500 hover:text-red-700 p-1"
-                    title="Hapus"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {/* Preview */}
-              <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 h-24 flex items-center justify-center">
-                {formData.signatureImage ? (
-                  <img
-                    src={formData.signatureImage}
-                    alt="Preview Tanda Tangan"
-                    className="max-h-20 max-w-full object-contain"
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Tarif Lembur Standar (Rp / Jam)</span>
+                  <span className="text-blue-600 font-bold">Khusus Slip Gaji</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-2.5 text-slate-500 font-bold">Rp</span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="500"
+                    value={formData.tarifLemburPerJam ?? 12000}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        tarifLemburPerJam: Math.max(0, parseInt(e.target.value) || 0),
+                      })
+                    }
+                    className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50/50 font-mono font-bold text-slate-900"
                   />
-                ) : (
-                  <span className="text-slate-400 text-[11px]">Belum ada tanda tangan</span>
-                )}
+                </div>
               </div>
-            </div>
 
-            <div className="pt-2 flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={() => signInputRef.current?.click()}
-                className="flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-semibold px-2.5 py-1.5 rounded-lg text-xs"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                <span>Upload TTD</span>
-              </button>
-              <input
-                ref={signInputRef}
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleImageUpload(e, 'signatureImage')}
-                className="hidden"
-              />
-              <button
-                type="button"
-                onClick={() =>
-                  setFormData({ ...formData, signatureImage: '/default-ttd-stempel.png' })
-                }
-                className="text-[11px] text-slate-600 hover:text-slate-900 border border-slate-300 px-2 py-1.5 rounded-lg"
-              >
-                TTD Bawaan MTA
-              </button>
+              {/* Rekening Pembayaran Transfer (Invoice) */}
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1 flex items-center justify-between">
+                  <span>Nama Bank</span>
+                  <span className="text-blue-600 font-bold">Khusus Invoice</span>
+                </label>
+                <input
+                  type="text"
+                  value={formData.bankName || 'Mandiri'}
+                  onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                  placeholder="Mandiri"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50/50 font-bold text-slate-900"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Atas Nama Rekening
+                </label>
+                <input
+                  type="text"
+                  value={formData.bankAccountName || 'CV. MULIA TEKHNIK ABADI'}
+                  onChange={(e) => setFormData({ ...formData, bankAccountName: e.target.value })}
+                  placeholder="CV. MULIA TEKHNIK ABADI"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50/50 font-bold text-slate-900"
+                />
+              </div>
+
+              <div>
+                <label className="block font-semibold text-slate-700 mb-1">
+                  Nomor Rekening
+                </label>
+                <input
+                  type="text"
+                  value={formData.bankAccountNumber || '167-00-0529426-8'}
+                  onChange={(e) => setFormData({ ...formData, bankAccountNumber: e.target.value })}
+                  placeholder="167-00-0529426-8"
+                  className="w-full px-3 py-2.5 rounded-xl border border-slate-300 focus:outline-none focus:ring-2 focus:ring-blue-600 bg-slate-50/50 font-mono font-bold text-slate-900"
+                />
+              </div>
             </div>
           </div>
 
-          {/* Stempel */}
-          <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs border border-slate-200 space-y-3 text-xs flex flex-col justify-between">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-bold text-[#0b223d] uppercase tracking-wider flex items-center gap-1.5">
-                  <span className="w-2 h-4 rounded-full bg-blue-600"></span>
-                  D. Stempel Perusahaan
-                </h3>
-                {formData.stampImage && (
-                  <button
-                    type="button"
-                    onClick={() => setFormData({ ...formData, stampImage: '' })}
-                    className="text-red-500 hover:text-red-700 p-1"
-                    title="Hapus"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                )}
-              </div>
-
-              {/* Preview */}
-              <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 h-24 flex items-center justify-center">
-                {formData.stampImage ? (
-                  <img
-                    src={formData.stampImage}
-                    alt="Preview Stempel"
-                    className="max-h-20 max-w-full object-contain"
-                  />
-                ) : (
-                  <span className="text-slate-400 text-[11px]">
-                    {formData.signatureImage
-                      ? 'Tersatu dalam gambar tanda tangan'
-                      : 'Opsional (terpisah)'}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="pt-2 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => stampInputRef.current?.click()}
-                className="flex items-center gap-1 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-semibold px-2.5 py-1.5 rounded-lg text-xs"
-              >
-                <Upload className="w-3.5 h-3.5" />
-                <span>Upload Stempel</span>
-              </button>
-              <input
-                ref={stampInputRef}
-                type="file"
-                accept="image/*"
-                onChange={(e) => handleImageUpload(e, 'stampImage')}
-                className="hidden"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION E: PENGATURAN SURAT & FORMAT */}
+        {/* ============================================================== */}
+        {/* BAGIAN 3: PENGATURAN SURAT PENAWARAN & PAJAK */}
+        {/* ============================================================== */}
         <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs border border-slate-200 space-y-3 text-xs">
           <h3 className="text-sm font-bold text-[#0b223d] uppercase tracking-wider flex items-center gap-2">
             <span className="w-2 h-4 rounded-full bg-blue-600"></span>
-            E. Pengaturan Format Surat & Penomoran
+            Pengaturan Format Surat &amp; Penomoran
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
@@ -478,14 +607,17 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
 
             <div>
               <label className="block font-semibold text-slate-700 mb-1">
-                Nomor Urut Surat Awal / Berikutnya
+                Nomor Urut Surat Awal
               </label>
               <input
                 type="number"
                 min="1"
                 value={formData.nextSequenceNumber ?? 16}
                 onChange={(e) =>
-                  setFormData({ ...formData, nextSequenceNumber: Math.max(1, parseInt(e.target.value) || 1) })
+                  setFormData({
+                    ...formData,
+                    nextSequenceNumber: Math.max(1, parseInt(e.target.value) || 1),
+                  })
                 }
                 className="w-full px-3 py-2 rounded-xl border border-blue-300 bg-blue-50/40 font-bold text-blue-900 text-center"
               />
@@ -526,26 +658,28 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
         </div>
 
         {/* Bottom Save Action */}
-        <div className="flex justify-end">
+        <div className="flex justify-end pt-1">
           <button
             type="submit"
             disabled={isSaving}
-            className="flex items-center gap-2 bg-[#0b223d] hover:bg-blue-900 text-white font-bold text-xs px-5 py-3 rounded-xl shadow-md transition active:scale-95"
+            className="flex items-center gap-2 bg-[#0b223d] hover:bg-blue-900 text-white font-bold text-xs px-6 py-3 rounded-xl shadow-md transition active:scale-95"
           >
             <Save className="w-4 h-4" />
-            <span>Simpan Semua Pengaturan</span>
+            <span>Simpan Semua Pengaturan Perusahaan</span>
           </button>
         </div>
       </form>
 
-      {/* SECTION 11: BACKUP DAN RESTORE JSON */}
+      {/* ============================================================== */}
+      {/* BAGIAN 4: BACKUP DAN RESTORE DATA LENGKAP JSON */}
+      {/* ============================================================== */}
       <div className="bg-gradient-to-br from-slate-900 to-[#0b223d] text-white rounded-2xl p-4 sm:p-5 shadow-lg space-y-3.5 text-xs mt-6">
         <div className="flex items-center gap-2 pb-2 border-b border-white/10">
           <DownloadCloud className="w-5 h-5 text-sky-400" />
           <div>
-            <h3 className="font-bold text-sm text-white">Backup & Restore Data JSON</h3>
+            <h3 className="font-bold text-sm text-white">Backup &amp; Restore Data Terintegrasi</h3>
             <p className="text-[11px] text-sky-200">
-              Simpan cadangan seluruh surat, pelanggan, dan gambar (Base64) ke dalam satu file lokal
+              Simpan cadangan seluruh identitas perusahaan, Logo, KOP, TTD/Stempel, Surat Penawaran, dan Pelanggan ke 1 file JSON
             </p>
           </div>
         </div>
@@ -559,7 +693,7 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                 <span>Backup Seluruh Data</span>
               </div>
               <p className="text-[11px] text-slate-300 mt-1">
-                Mengunduh file JSON terintegrasi berisi seluruh pengaturan, gambar KOP, tanda tangan, stempel, riwayat surat penawaran, dan daftar pelanggan.
+                Mengunduh file JSON terintegrasi berisi seluruh data perusahaan, gambar Logo, KOP, TTD, riwayat surat, dan rekanan pelanggan.
               </p>
             </div>
             <button

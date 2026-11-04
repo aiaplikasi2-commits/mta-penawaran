@@ -6,10 +6,11 @@ const DB_VERSION = 1;
 
 export const DEFAULT_SETTINGS: CompanySettings = {
   companyName: 'CV. MULIA TEKHNIK ABADI',
-  address: 'Jln. Letda Nasir No. 58 Desa Ciketing Udik\nKecamatan Gunung Putri Kab. Bogor Kode Pos 16966',
+  address: 'Jln. Letda Nasir No. 58 Desa Cikeas Udik\nKecamatan Gunung Putri Kab. Bogor Kode Pos 16966',
   email: 'cvmuliatekhnikabadi@gmail.com',
   phone: '0812 - 1085 - 2489 / 0878 - 4062 - 0432',
   signatoryName: 'Muhamad Ridho',
+  logoImage: '/default-logo.png',
   kopImage: '/default-kop.png',
   signatureImage: '/default-ttd-stempel.png',
   stampImage: '',
@@ -17,6 +18,10 @@ export const DEFAULT_SETTINGS: CompanySettings = {
   nextSequenceNumber: 16,
   city: 'Bogor',
   defaultPpnPercent: 11,
+  tarifLemburPerJam: 12000,
+  bankName: 'Mandiri',
+  bankAccountName: 'CV. MULIA TEKHNIK ABADI',
+  bankAccountNumber: '167-00-0529426-8',
 };
 
 let dbPromise: Promise<IDBPDatabase> | null = null;
@@ -49,74 +54,173 @@ export function getDb(): Promise<IDBPDatabase> {
 
 // Settings methods
 export async function getCompanySettings(): Promise<CompanySettings> {
-  const db = await getDb();
-  const saved = await db.get('settings', 'company_settings');
+  try {
+    const { doc, getDoc } = await import('firebase/firestore');
+    const { db } = await import('./firebase.ts');
+    const snap = await getDoc(doc(db, 'settings', 'company_settings'));
+    if (snap.exists()) {
+      const data = snap.data() as CompanySettings;
+      const combined = { ...DEFAULT_SETTINGS, ...data };
+      // Cache locally
+      const idbDb = await getDb();
+      await idbDb.put('settings', combined, 'company_settings');
+      return combined;
+    }
+  } catch (e) {
+    console.warn('Fallback to local settings cache:', e);
+  }
+
+  const idbDb = await getDb();
+  const saved = await idbDb.get('settings', 'company_settings');
   if (!saved) {
-    await db.put('settings', DEFAULT_SETTINGS, 'company_settings');
+    await idbDb.put('settings', DEFAULT_SETTINGS, 'company_settings');
     return DEFAULT_SETTINGS;
   }
   return { ...DEFAULT_SETTINGS, ...saved };
 }
 
 export async function saveCompanySettings(settings: CompanySettings): Promise<void> {
-  const db = await getDb();
-  await db.put('settings', settings, 'company_settings');
+  const idbDb = await getDb();
+  await idbDb.put('settings', settings, 'company_settings');
+
+  // Push to cloud
+  try {
+    const { saveSettingsOnline } = await import('./cloudSync.ts');
+    await saveSettingsOnline(settings);
+  } catch (err) {
+    console.warn('Online sync queued for settings:', err);
+  }
 }
 
 // Letters methods
 export async function getAllLetters(): Promise<LetterData[]> {
-  const db = await getDb();
-  const letters = await db.getAll('letters');
+  try {
+    const { collection, getDocs } = await import('firebase/firestore');
+    const { db } = await import('./firebase.ts');
+    const snap = await getDocs(collection(db, 'letters'));
+    if (!snap.empty) {
+      const cloudList = snap.docs.map((d) => d.data() as LetterData);
+      cloudList.sort(
+        (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+      );
+      // Update local cache
+      const idbDb = await getDb();
+      for (const l of cloudList) {
+        await idbDb.put('letters', l);
+      }
+      return cloudList;
+    }
+  } catch (e) {
+    console.warn('Fallback to local letters cache:', e);
+  }
+
+  const idbDb = await getDb();
+  const letters = await idbDb.getAll('letters');
   return (letters || []).sort(
     (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
   );
 }
 
 export async function getLetterById(id: string): Promise<LetterData | undefined> {
-  const db = await getDb();
-  return db.get('letters', id);
+  try {
+    const { doc, getDoc } = await import('firebase/firestore');
+    const { db } = await import('./firebase.ts');
+    const snap = await getDoc(doc(db, 'letters', id));
+    if (snap.exists()) {
+      return snap.data() as LetterData;
+    }
+  } catch {}
+  const idbDb = await getDb();
+  return idbDb.get('letters', id);
 }
 
 export async function saveLetter(letter: LetterData): Promise<void> {
-  const db = await getDb();
   const toSave: LetterData = {
     ...letter,
     updatedAt: new Date().toISOString(),
     createdAt: letter.createdAt || new Date().toISOString(),
   };
-  await db.put('letters', toSave);
+
+  const idbDb = await getDb();
+  await idbDb.put('letters', toSave);
+
+  // Push to Firestore Cloud Database
+  try {
+    const { saveLetterOnline } = await import('./cloudSync.ts');
+    await saveLetterOnline(toSave);
+  } catch (err) {
+    console.warn('Online sync queued for letter:', err);
+  }
 }
 
 export async function deleteLetter(id: string): Promise<void> {
-  const db = await getDb();
-  await db.delete('letters', id);
+  const idbDb = await getDb();
+  await idbDb.delete('letters', id);
+
+  // Push delete to Firestore Cloud Database
+  try {
+    const { deleteLetterOnline } = await import('./cloudSync.ts');
+    await deleteLetterOnline(id);
+  } catch (err) {
+    console.warn('Online delete queued for letter:', err);
+  }
 }
 
 // Customer methods
 export async function getAllCustomers(): Promise<Customer[]> {
-  const db = await getDb();
-  const customers = await db.getAll('customers');
+  try {
+    const { collection, getDocs } = await import('firebase/firestore');
+    const { db } = await import('./firebase.ts');
+    const snap = await getDocs(collection(db, 'customers'));
+    if (!snap.empty) {
+      const cloudList = snap.docs.map((d) => d.data() as Customer);
+      cloudList.sort((a, b) => (a.companyName || '').localeCompare(b.companyName || ''));
+      const idbDb = await getDb();
+      for (const c of cloudList) {
+        await idbDb.put('customers', c);
+      }
+      return cloudList;
+    }
+  } catch (e) {
+    console.warn('Fallback to local customers cache:', e);
+  }
+
+  const idbDb = await getDb();
+  const customers = await idbDb.getAll('customers');
   return (customers || []).sort((a, b) => (a.companyName || '').localeCompare(b.companyName || ''));
 }
 
 export async function saveCustomer(customer: Customer): Promise<void> {
-  const db = await getDb();
-  await db.put('customers', customer);
+  const idbDb = await getDb();
+  await idbDb.put('customers', customer);
+
+  // Push to Firestore Cloud Database
+  try {
+    const { saveCustomerOnline } = await import('./cloudSync.ts');
+    await saveCustomerOnline(customer);
+  } catch (err) {
+    console.warn('Online sync queued for customer:', err);
+  }
 }
 
 export async function saveBatchCustomers(newCustomers: Customer[]): Promise<number> {
-  const db = await getDb();
+  const idbDb = await getDb();
   const existing = await getAllCustomers();
   const existingNames = new Set(existing.map((c) => c.companyName.trim().toLowerCase()));
 
   let insertedCount = 0;
-  const tx = db.transaction('customers', 'readwrite');
+  const tx = idbDb.transaction('customers', 'readwrite');
   for (const c of newCustomers) {
     const key = (c.companyName || '').trim().toLowerCase();
     if (key && !existingNames.has(key)) {
       await tx.store.put(c);
       existingNames.add(key);
       insertedCount++;
+      // Sync each new customer to cloud
+      try {
+        const { saveCustomerOnline } = await import('./cloudSync.ts');
+        saveCustomerOnline(c).catch(() => {});
+      } catch {}
     }
   }
   await tx.done;
@@ -124,8 +228,15 @@ export async function saveBatchCustomers(newCustomers: Customer[]): Promise<numb
 }
 
 export async function deleteCustomer(id: string): Promise<void> {
-  const db = await getDb();
-  await db.delete('customers', id);
+  const idbDb = await getDb();
+  await idbDb.delete('customers', id);
+
+  try {
+    const { deleteCustomerOnline } = await import('./cloudSync.ts');
+    await deleteCustomerOnline(id);
+  } catch (err) {
+    console.warn('Online delete queued for customer:', err);
+  }
 }
 
 // Draft methods
@@ -167,17 +278,19 @@ export async function exportBackupJSON(): Promise<BackupData> {
   const letters = await getAllLetters();
   const customers = await getAllCustomers();
 
-  // Ensure KOP and signature images are embedded as Base64 in backup
+  // Ensure logo, KOP and signature images are embedded as Base64 in backup
+  const embeddedLogo = await urlToBase64(settings.logoImage || '/default-logo.png');
   const embeddedKop = await urlToBase64(settings.kopImage);
   const embeddedSignature = await urlToBase64(settings.signatureImage);
   const embeddedStamp = await urlToBase64(settings.stampImage);
 
   const backupData: BackupData = {
     version: 1,
-    appName: 'SURAT PENAWARAN MTA',
+    appName: 'SURAT PENAWARAN & GAJI MTA',
     exportedAt: new Date().toISOString(),
     settings: {
       ...settings,
+      logoImage: embeddedLogo,
       kopImage: embeddedKop,
       signatureImage: embeddedSignature,
       stampImage: embeddedStamp,

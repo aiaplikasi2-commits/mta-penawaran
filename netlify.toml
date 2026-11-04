@@ -17,6 +17,11 @@
   to = "/.netlify/functions/generate-letter-content"
   status = 200
 
+[[redirects]]
+  from = "/api/revise-letter-content"
+  to = "/.netlify/functions/revise-letter-content"
+  status = 200
+
 # SPA fallback rule
 [[redirects]]
   from = "/*"

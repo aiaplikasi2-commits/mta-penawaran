@@ -1,0 +1,75 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // Default deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Settings
+    match /settings/{settingsId} {
+      allow get: if isValidId(settingsId);
+      allow list: if true;
+      allow write: if isValidId(settingsId) && request.resource.data.size() <= 30;
+    }
+
+    // Surat Penawaran
+    match /letters/{letterId} {
+      allow get: if isValidId(letterId);
+      allow list: if true;
+      allow write: if isValidId(letterId) && request.resource.data.size() <= 35;
+      allow delete: if isValidId(letterId);
+    }
+
+    // Data Client / Customer
+    match /customers/{customerId} {
+      allow get: if isValidId(customerId);
+      allow list: if true;
+      allow write: if isValidId(customerId) && request.resource.data.size() <= 20;
+      allow delete: if isValidId(customerId);
+    }
+
+    // BAST
+    match /basts/{bastId} {
+      allow get: if isValidId(bastId);
+      allow list: if true;
+      allow write: if isValidId(bastId) && request.resource.data.size() <= 30;
+      allow delete: if isValidId(bastId);
+    }
+
+    // Invoice
+    match /invoices/{invoiceId} {
+      allow get: if isValidId(invoiceId);
+      allow list: if true;
+      allow write: if isValidId(invoiceId) && request.resource.data.size() <= 35;
+      allow delete: if isValidId(invoiceId);
+    }
+
+    // Karyawan
+    match /karyawan/{karyawanId} {
+      allow get: if isValidId(karyawanId);
+      allow list: if true;
+      allow write: if isValidId(karyawanId) && request.resource.data.size() <= 20;
+      allow delete: if isValidId(karyawanId);
+    }
+
+    // Slip Gaji
+    match /slips/{slipId} {
+      allow get: if isValidId(slipId);
+      allow list: if true;
+      allow write: if isValidId(slipId) && request.resource.data.size() <= 35;
+      allow delete: if isValidId(slipId);
+    }
+
+    // Test connection doc
+    match /test/{docId} {
+      allow read, write: if true;
+    }
+  }
+}

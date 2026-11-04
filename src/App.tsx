@@ -16,26 +16,58 @@ import {
   DEFAULT_SETTINGS,
 } from './services/db.ts';
 import { downloadLetterPDF } from './services/pdfGenerator.ts';
-import { Header } from './components/Header.tsx';
-import { BottomNav, type NavTab } from './components/BottomNav.tsx';
+import { Header, type AppMode } from './components/Header.tsx';
+import { SidebarDrawer } from './components/SidebarDrawer.tsx';
 import { FormTambahSurat } from './components/FormTambahSurat.tsx';
 import { RekapSurat } from './components/RekapSurat.tsx';
 import { DataPelanggan } from './components/DataPelanggan.tsx';
 import { Pengaturan } from './components/Pengaturan.tsx';
 import { PDFPreviewModal } from './components/PDFPreviewModal.tsx';
 import { ShareModal } from './components/ShareModal.tsx';
+import { SalaryModule } from './components/salary/SalaryModule.tsx';
+import { BastModule } from './components/bast/BastModule.tsx';
+import { InvoiceModule } from './components/invoice/InvoiceModule.tsx';
+import { DashboardBeranda } from './components/dashboard/DashboardBeranda.tsx';
+import { PoTrackerModal } from './components/dashboard/PoTrackerModal.tsx';
+import type { BastData } from './types/bast.ts';
+import type { InvoiceData } from './types/invoice.ts';
+import { getAllBasts } from './services/bastDb.ts';
+import { getAllInvoices } from './services/invoiceDb.ts';
+import {
+  initializeAndMigrateToCloud,
+  subscribeSettings,
+  subscribeLetters,
+  subscribeCustomers,
+  subscribeBasts,
+  subscribeInvoices,
+} from './services/cloudSync.ts';
 import { CheckCircle2 } from 'lucide-react';
 
+export type NavTab = 'tambah' | 'rekap' | 'pelanggan' | 'pengaturan';
+
 export default function App() {
-  const [activeTab, setActiveTab] = useState<NavTab>('tambah');
+  const [appMode, setAppMode] = useState<AppMode>(() => {
+    return (localStorage.getItem('MTA_APP_MODE') as AppMode) || 'dashboard';
+  });
+  const [activeTab, setActiveTab] = useState<NavTab>('rekap');
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [settings, setSettings] = useState<CompanySettings>(DEFAULT_SETTINGS);
   const [letters, setLetters] = useState<LetterData[]>([]);
+  const [basts, setBasts] = useState<BastData[]>([]);
+  const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [activeLetterForEdit, setActiveLetterForEdit] = useState<LetterData | null>(null);
   const [previewModalLetter, setPreviewModalLetter] = useState<LetterData | null>(null);
   const [shareModalLetter, setShareModalLetter] = useState<LetterData | null>(null);
+  const [isPoModalOpen, setIsPoModalOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Switch mode handler
+  const handleModeChange = (mode: AppMode) => {
+    setAppMode(mode);
+    localStorage.setItem('MTA_APP_MODE', mode);
+  };
 
   // Toast helper
   const showToast = useCallback((msg: string) => {
@@ -51,14 +83,18 @@ export default function App() {
   // Load Initial Data from IndexedDB
   const loadAllData = useCallback(async () => {
     try {
-      const [loadedSettings, loadedLetters, loadedCustomers] = await Promise.all([
+      const [loadedSettings, loadedLetters, loadedCustomers, loadedBasts, loadedInvoices] = await Promise.all([
         getCompanySettings(),
         getAllLetters(),
         getAllCustomers(),
+        getAllBasts(),
+        getAllInvoices(),
       ]);
       setSettings(loadedSettings);
       setLetters(loadedLetters);
       setCustomers(loadedCustomers);
+      setBasts(loadedBasts);
+      setInvoices(loadedInvoices);
 
       // Check draft if not editing
       const draft = await getDraftLetter();
@@ -73,7 +109,45 @@ export default function App() {
   }, [activeLetterForEdit]);
 
   useEffect(() => {
+    let isMounted = true;
+
+    // 1. Initial Cloud Sync Check & Seeding
+    initializeAndMigrateToCloud().catch((err) => {
+      console.warn('Cloud database migration notice:', err);
+    });
+
+    // 2. Load Local / Initial Data
     loadAllData();
+
+    // 3. Multi-device Real-time Listeners (Single Source of Truth)
+    const unsubSettings = subscribeSettings((newSettings) => {
+      if (isMounted) setSettings(newSettings);
+    });
+
+    const unsubLetters = subscribeLetters((newList) => {
+      if (isMounted) setLetters(newList);
+    });
+
+    const unsubCustomers = subscribeCustomers((newList) => {
+      if (isMounted) setCustomers(newList);
+    });
+
+    const unsubBasts = subscribeBasts((newList) => {
+      if (isMounted) setBasts(newList);
+    });
+
+    const unsubInvoices = subscribeInvoices((newList) => {
+      if (isMounted) setInvoices(newList);
+    });
+
+    return () => {
+      isMounted = false;
+      unsubSettings();
+      unsubLetters();
+      unsubCustomers();
+      unsubBasts();
+      unsubInvoices();
+    };
   }, [loadAllData]);
 
   // Save Letter Handler
@@ -114,7 +188,7 @@ export default function App() {
     }
   };
 
-  // REQUIREMENT 3: Open Share Modal for choosing WhatsApp or Email with PDF attached
+  // Share Modal for choosing WhatsApp or Email with PDF attached
   const handleSharePDF = (letter: LetterData) => {
     setShareModalLetter(letter);
   };
@@ -163,17 +237,23 @@ export default function App() {
   };
 
   // Reset to brand new letter
-  const handleResetToNewLetter = () => {
-    clearDraftLetter();
+  const handleResetToNewLetter = async () => {
+    await clearDraftLetter();
     setActiveLetterForEdit(null);
+    setActiveTab('tambah');
     showToast('Formulir surat baru disiapkan');
   };
 
-  // REQUIREMENT 2: When leaving 'tambah' tab, ensure current draft is saved as Draft
+  // When leaving 'tambah' tab, ensure current draft is saved as Draft
   const handleTabChange = async (nextTab: NavTab) => {
     if (activeTab === 'tambah' && nextTab !== 'tambah') {
       const draft = await getDraftLetter();
-      if (draft && (draft.subject.trim() || draft.companyName.trim() || draft.items.some(i => i.description.trim()))) {
+      if (
+        draft &&
+        (draft.subject.trim() ||
+          draft.companyName.trim() ||
+          draft.items.some((i) => i.description.trim()))
+      ) {
         const draftLetter = {
           ...draft,
           status: 'Draft' as const,
@@ -192,69 +272,227 @@ export default function App() {
         <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-700 to-sky-500 p-1 flex items-center justify-center animate-pulse shadow-lg">
           <span className="font-extrabold text-base tracking-wider text-white">MTA</span>
         </div>
-        <p className="mt-3 font-semibold text-xs text-slate-600">Memuat SP MTA...</p>
+        <p className="mt-3 font-semibold text-xs text-slate-600">Memuat SP MTA & Gaji...</p>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans select-none antialiased">
-      {/* 1. STICKY TOP HEADER */}
-      <Header />
+      {/* 1. STICKY TOP HEADER (WHEN NOT IN DASHBOARD) */}
+      {appMode !== 'dashboard' && (
+        <Header
+          appMode={appMode}
+          onModeChange={handleModeChange}
+          onOpenSidebar={() => setIsSidebarOpen(true)}
+          onToast={showToast}
+        />
+      )}
 
       {/* 2. MAIN ACTIVE VIEW CONTENT */}
       <main className="flex-1 w-full">
-        {activeTab === 'tambah' && (
-          <FormTambahSurat
-            initialLetter={activeLetterForEdit}
+        {/* MODE: DASHBOARD / BERANDA UTAMA (MOCKUP HVAC MTA) */}
+        {appMode === 'dashboard' ? (
+          <DashboardBeranda
             settings={settings}
-            customers={customers}
-            onSave={handleSaveLetter}
-            onDownloadPDF={handleDownloadPDF}
-            onSharePDF={handleSharePDF}
-            onPreviewPDF={handlePreviewPDF}
-            onToast={showToast}
-            onResetToNew={handleResetToNewLetter}
-          />
-        )}
-
-        {activeTab === 'rekap' && (
-          <RekapSurat
             letters={letters}
-            settings={settings}
-            onEditLetter={handleEditLetterFromRekap}
-            onPreviewLetter={handlePreviewPDF}
-            onDownloadLetter={handleDownloadPDF}
-            onShareLetter={handleSharePDF}
-            onDeleteLetter={handleDeleteLetter}
-            onToast={showToast}
-          />
-        )}
-
-        {activeTab === 'pelanggan' && (
-          <DataPelanggan
+            basts={basts}
+            invoices={invoices}
             customers={customers}
-            onSaveCustomer={handleSaveCustomer}
-            onBatchImport={handleBatchImportCustomers}
-            onDeleteCustomer={handleDeleteCustomer}
+            onToast={showToast}
+            onSelectModule={(mode) => {
+              handleModeChange(mode);
+              if (mode === 'penawaran') setActiveTab('rekap');
+            }}
+            onOpenPengaturan={() => {
+              handleModeChange('penawaran');
+              setActiveTab('pengaturan');
+            }}
+            onOpenClientData={() => {
+              handleModeChange('penawaran');
+              setActiveTab('pelanggan');
+            }}
+            onOpenPoTracker={() => {
+              setIsPoModalOpen(true);
+            }}
+            onOpenCoffee={() => {
+              const gopay = '08179015181';
+              navigator.clipboard?.writeText(gopay);
+              showToast('Nomor GoPay 08179015181 disalin!');
+            }}
+            onOpenSidebar={() => setIsSidebarOpen(true)}
+          />
+        ) : appMode === 'bast' ? (
+          /* MODE: BAST MTA (BERITA ACARA SERAH TERIMA) */
+          <BastModule
+            settings={settings}
+            customers={customers}
+            letters={letters}
             onToast={showToast}
           />
-        )}
-
-        {activeTab === 'pengaturan' && (
-          <Pengaturan
+        ) : appMode === 'invoice' ? (
+          /* MODE: INVOICE MTA */
+          <InvoiceModule
+            settings={settings}
+            customers={customers}
+            letters={letters}
+            onToast={showToast}
+          />
+        ) : appMode === 'gaji' ? (
+          /* MODE: SLIP GAJI MTA */
+          <SalaryModule
             settings={settings}
             onSaveSettings={handleSaveSettings}
-            onRefreshAllData={loadAllData}
             onToast={showToast}
           />
+        ) : (
+          /* MODE: SURAT PENAWARAN HARGA (SP MTA) */
+          <div className="w-full">
+            {/* SUBNAV UNTUK SURAT PENAWARAN */}
+            <div className="bg-[#0b223d]/90 backdrop-blur-md border-b border-blue-900/50 sticky top-12 sm:top-13 z-30 px-2 sm:px-4 py-1.5">
+              <div className="max-w-5xl mx-auto flex items-center justify-between overflow-x-auto gap-1.5 scrollbar-none">
+                <div className="flex items-center gap-1 sm:gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange('tambah')}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                      activeTab === 'tambah'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'text-sky-200 hover:text-white hover:bg-blue-900/50'
+                    }`}
+                  >
+                    <span>+ Buat Surat</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange('rekap')}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                      activeTab === 'rekap'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'text-sky-200 hover:text-white hover:bg-blue-900/50'
+                    }`}
+                  >
+                    <span>Rekap Surat ({letters.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange('pelanggan')}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                      activeTab === 'pelanggan'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'text-sky-200 hover:text-white hover:bg-blue-900/50'
+                    }`}
+                  >
+                    <span>Data Client ({customers.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleTabChange('pengaturan')}
+                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
+                      activeTab === 'pengaturan'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'text-sky-200 hover:text-white hover:bg-blue-900/50'
+                    }`}
+                  >
+                    <span>Pengaturan</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {activeTab === 'tambah' && (
+              <FormTambahSurat
+                initialLetter={activeLetterForEdit}
+                settings={settings}
+                customers={customers}
+                onSave={handleSaveLetter}
+                onDownloadPDF={handleDownloadPDF}
+                onSharePDF={handleSharePDF}
+                onPreviewPDF={handlePreviewPDF}
+                onToast={showToast}
+                onResetToNew={handleResetToNewLetter}
+              />
+            )}
+
+            {activeTab === 'rekap' && (
+              <RekapSurat
+                letters={letters}
+                settings={settings}
+                onEditLetter={handleEditLetterFromRekap}
+                onPreviewLetter={handlePreviewPDF}
+                onDownloadLetter={handleDownloadPDF}
+                onShareLetter={handleSharePDF}
+                onDeleteLetter={handleDeleteLetter}
+                onToast={showToast}
+              />
+            )}
+
+            {activeTab === 'pelanggan' && (
+              <DataPelanggan
+                customers={customers}
+                onSaveCustomer={handleSaveCustomer}
+                onBatchImport={handleBatchImportCustomers}
+                onDeleteCustomer={handleDeleteCustomer}
+                onToast={showToast}
+              />
+            )}
+
+            {activeTab === 'pengaturan' && (
+              <Pengaturan
+                settings={settings}
+                onSaveSettings={handleSaveSettings}
+                onRefreshAllData={loadAllData}
+                onToast={showToast}
+              />
+            )}
+          </div>
         )}
       </main>
 
-      {/* 3. STICKY BOTTOM NAVIGATION BAR */}
-      <BottomNav activeTab={activeTab} onTabChange={handleTabChange} />
+      {/* 3. SIDEBAR DRAWER (GLOBAL) */}
+      <SidebarDrawer
+        isOpen={isSidebarOpen}
+        onClose={() => setIsSidebarOpen(false)}
+        settings={settings}
+        onNavigate={(mode, tab) => {
+          handleModeChange(mode);
+          if (tab) handleTabChange(tab as NavTab);
+        }}
+        onOpenPoTracker={() => setIsPoModalOpen(true)}
+        onOpenCoffee={() => {
+          const gopay = '08179015181';
+          navigator.clipboard?.writeText(gopay);
+          showToast('Nomor GoPay 08179015181 disalin!');
+        }}
+      />
 
-      {/* 4. MODAL PREVIEW DOKUMEN */}
+      {/* 3B. PO TRACKER MODAL */}
+      {isPoModalOpen && (
+        <PoTrackerModal
+          isOpen={isPoModalOpen}
+          onClose={() => setIsPoModalOpen(false)}
+          letters={letters}
+          basts={basts}
+          invoices={invoices}
+          onOpenLetter={(letter) => {
+            setIsPoModalOpen(false);
+            handleEditLetterFromRekap(letter);
+          }}
+          onOpenBast={() => {
+            setIsPoModalOpen(false);
+            handleModeChange('bast');
+          }}
+          onOpenInvoice={() => {
+            setIsPoModalOpen(false);
+            handleModeChange('invoice');
+          }}
+        />
+      )}
+
+      {/* 4. MODAL PREVIEW DOKUMEN SURAT PENAWARAN */}
       {previewModalLetter && (
         <PDFPreviewModal
           isOpen={Boolean(previewModalLetter)}
