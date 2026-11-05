@@ -113,14 +113,35 @@ export async function getAllInvoices(): Promise<InvoiceData[]> {
     const { collection, getDocs } = await import('firebase/firestore');
     const { db } = await import('./firebase.ts');
     const snap = await getDocs(collection(db, 'invoices'));
+    const idbDb = await getInvoiceDb();
+
     if (!snap.empty) {
       const cloudList = snap.docs.map((d) => d.data() as InvoiceData);
       cloudList.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
-      const idbDb = await getInvoiceDb();
+
+      // Cleanly synchronize local IndexedDB with cloud truth
+      const tx = idbDb.transaction('invoices', 'readwrite');
+      await tx.store.clear();
       for (const inv of cloudList) {
-        await idbDb.put('invoices', inv);
+        await tx.store.put(inv);
+      }
+      await tx.done;
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('MTA_INVOICE_INIT', 'true');
       }
       return cloudList;
+    } else {
+      // Cloud database has 0 invoices (e.g. user deleted all invoices)
+      // Synchronize IDB to empty as well so deleted items never remain
+      const tx = idbDb.transaction('invoices', 'readwrite');
+      await tx.store.clear();
+      await tx.done;
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('MTA_INVOICE_INIT', 'true');
+      }
+      return [];
     }
   } catch (e) {
     console.warn('Fallback to local Invoice cache:', e);
@@ -128,11 +149,15 @@ export async function getAllInvoices(): Promise<InvoiceData[]> {
 
   const db = await getInvoiceDb();
   const list = await db.getAll('invoices');
-  if (!list || list.length === 0) {
+  
+  // Only inject seed invoice on the absolute first launch if never initialized
+  if ((!list || list.length === 0) && typeof window !== 'undefined' && !localStorage.getItem('MTA_INVOICE_INIT')) {
+    localStorage.setItem('MTA_INVOICE_INIT', 'true');
     await db.put('invoices', SEED_INVOICE);
     return [SEED_INVOICE];
   }
-  return list.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+
+  return (list || []).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
 }
 
 export async function getInvoiceById(id: string): Promise<InvoiceData | undefined> {

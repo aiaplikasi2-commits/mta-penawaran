@@ -7,6 +7,7 @@ import {
   deleteInvoice,
   generateNomorInvoiceBaru,
 } from '../../services/invoiceDb.ts';
+import { subscribeInvoices } from '../../services/cloudSync.ts';
 import { DaftarInvoice } from './DaftarInvoice.tsx';
 import { FormInvoice } from './FormInvoice.tsx';
 import { InvoicePreviewModal } from './InvoicePreviewModal.tsx';
@@ -45,6 +46,20 @@ export const InvoiceModule: React.FC<InvoiceModuleProps> = ({
 
   useEffect(() => {
     loadData();
+
+    // Subscribe to cloud real-time updates and deletions
+    let isMounted = true;
+    const unsub = subscribeInvoices((newList) => {
+      if (isMounted) {
+        setInvoices(newList);
+        setIsLoading(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsub();
+    };
   }, []);
 
   const handleCreateNew = () => {
@@ -82,11 +97,23 @@ export const InvoiceModule: React.FC<InvoiceModuleProps> = ({
   };
 
   const handleDeleteInvoice = async (id: string) => {
-    await deleteInvoice(id);
-    await loadData();
+    // 1. Immediately remove from local UI state
+    setInvoices((prev) => prev.filter((i) => i.id !== id));
     if (editingInvoice?.id === id) {
       setEditingInvoice(null);
       setActiveView('daftar');
+    }
+    if (previewInvoice?.id === id) {
+      setPreviewInvoice(null);
+    }
+
+    // 2. Permanently delete from IndexedDB and Firestore
+    try {
+      await deleteInvoice(id);
+      onToast('Invoice berhasil dihapus permanen');
+    } catch (err) {
+      console.error('Delete invoice error:', err);
+      onToast('Gagal menghapus Invoice');
     }
   };
 

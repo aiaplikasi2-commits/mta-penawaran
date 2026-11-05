@@ -66,6 +66,9 @@ export function getBastDb(): Promise<IDBPDatabase> {
 }
 
 export async function seedBastDatabaseIfNeeded(): Promise<void> {
+  if (typeof window !== 'undefined' && localStorage.getItem('MTA_BAST_INIT')) {
+    return; // Already initialized, never resurrect deleted BASTs
+  }
   const db = await getBastDb();
   const existing = await db.getAll('basts');
   if (!existing || existing.length === 0) {
@@ -74,6 +77,9 @@ export async function seedBastDatabaseIfNeeded(): Promise<void> {
       await tx.store.put(b);
     }
     await tx.done;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('MTA_BAST_INIT', 'true');
+    }
   }
 }
 
@@ -82,16 +88,36 @@ export async function getAllBasts(): Promise<BastData[]> {
     const { collection, getDocs } = await import('firebase/firestore');
     const { db } = await import('./firebase.ts');
     const snap = await getDocs(collection(db, 'basts'));
+    const idbDb = await getBastDb();
+
     if (!snap.empty) {
       const cloudList = snap.docs.map((d) => d.data() as BastData);
       cloudList.sort(
         (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
       );
-      const idbDb = await getBastDb();
+
+      // Cleanly sync IDB cache with cloud truth
+      const tx = idbDb.transaction('basts', 'readwrite');
+      await tx.store.clear();
       for (const b of cloudList) {
-        await idbDb.put('basts', b);
+        await tx.store.put(b);
+      }
+      await tx.done;
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('MTA_BAST_INIT', 'true');
       }
       return cloudList;
+    } else {
+      // Cloud database has 0 basts (user deleted all basts)
+      const tx = idbDb.transaction('basts', 'readwrite');
+      await tx.store.clear();
+      await tx.done;
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('MTA_BAST_INIT', 'true');
+      }
+      return [];
     }
   } catch (e) {
     console.warn('Fallback to local BAST cache:', e);

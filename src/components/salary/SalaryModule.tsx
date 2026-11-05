@@ -116,8 +116,13 @@ export const SalaryModule: React.FC<SalaryModuleProps> = ({
   };
 
   const handleDeleteKaryawan = async (id: string) => {
-    await deleteKaryawan(id);
-    await loadData();
+    setKaryawanList((prev) => prev.filter((k) => k.id !== id));
+    try {
+      await deleteKaryawan(id);
+      onToast('Data karyawan berhasil dihapus');
+    } catch {
+      onToast('Gagal menghapus karyawan');
+    }
   };
 
   const handleCreateSlipForKaryawan = (emp: Karyawan) => {
@@ -136,9 +141,16 @@ export const SalaryModule: React.FC<SalaryModuleProps> = ({
   };
 
   const handleDeleteSlip = async (id: string) => {
-    await deleteSlip(id);
-    await loadData();
-    onToast('Slip gaji berhasil dihapus');
+    setSlips((prev) => prev.filter((s) => s.id !== id));
+    if (previewSlip?.id === id) {
+      setPreviewSlip(null);
+    }
+    try {
+      await deleteSlip(id);
+      onToast('Slip gaji berhasil dihapus');
+    } catch {
+      onToast('Gagal menghapus slip');
+    }
   };
 
   // Unified Settings handler

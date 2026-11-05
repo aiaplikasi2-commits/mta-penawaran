@@ -159,6 +159,10 @@ export function getSalaryDb(): Promise<IDBPDatabase> {
 
 // Ensure initial seed data exists
 export async function seedSalaryDatabaseIfNeeded(): Promise<void> {
+  if (typeof window !== 'undefined' && localStorage.getItem('MTA_SALARY_INIT')) {
+    return; // Already initialized, never resurrect deleted records
+  }
+
   const db = await getSalaryDb();
   const existingEmployees = await db.getAll('karyawan');
   if (!existingEmployees || existingEmployees.length === 0) {
@@ -182,6 +186,10 @@ export async function seedSalaryDatabaseIfNeeded(): Promise<void> {
   if (!existingSettings) {
     await db.put('salary_settings', DEFAULT_SALARY_SETTINGS, 'config');
   }
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('MTA_SALARY_INIT', 'true');
+  }
 }
 
 // Karyawan CRUD
@@ -190,14 +198,31 @@ export async function getAllKaryawan(): Promise<Karyawan[]> {
     const { collection, getDocs } = await import('firebase/firestore');
     const { db } = await import('./firebase.ts');
     const snap = await getDocs(collection(db, 'karyawan'));
+    const idbDb = await getSalaryDb();
+
     if (!snap.empty) {
       const cloudList = snap.docs.map((d) => d.data() as Karyawan);
       cloudList.sort((a, b) => a.nama.localeCompare(b.nama));
-      const idbDb = await getSalaryDb();
+      // Cleanly sync IDB with cloud
+      const tx = idbDb.transaction('karyawan', 'readwrite');
+      await tx.store.clear();
       for (const k of cloudList) {
-        await idbDb.put('karyawan', k);
+        await tx.store.put(k);
+      }
+      await tx.done;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('MTA_SALARY_INIT', 'true');
       }
       return cloudList;
+    } else {
+      // 0 karyawan in cloud
+      const tx = idbDb.transaction('karyawan', 'readwrite');
+      await tx.store.clear();
+      await tx.done;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('MTA_SALARY_INIT', 'true');
+      }
+      return [];
     }
   } catch (e) {
     console.warn('Fallback to local karyawan cache:', e);
@@ -206,7 +231,7 @@ export async function getAllKaryawan(): Promise<Karyawan[]> {
   await seedSalaryDatabaseIfNeeded();
   const db = await getSalaryDb();
   const list = await db.getAll('karyawan');
-  return list.sort((a, b) => a.nama.localeCompare(b.nama));
+  return (list || []).sort((a, b) => a.nama.localeCompare(b.nama));
 }
 
 export async function saveKaryawan(karyawan: Karyawan): Promise<void> {
@@ -239,16 +264,33 @@ export async function getAllSlips(): Promise<SlipGaji[]> {
     const { collection, getDocs } = await import('firebase/firestore');
     const { db } = await import('./firebase.ts');
     const snap = await getDocs(collection(db, 'slips'));
+    const idbDb = await getSalaryDb();
+
     if (!snap.empty) {
       const cloudList = snap.docs.map((d) => d.data() as SlipGaji);
       cloudList.sort(
         (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
       );
-      const idbDb = await getSalaryDb();
+      // Cleanly sync IDB with cloud
+      const tx = idbDb.transaction('slips', 'readwrite');
+      await tx.store.clear();
       for (const s of cloudList) {
-        await idbDb.put('slips', s);
+        await tx.store.put(s);
+      }
+      await tx.done;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('MTA_SALARY_INIT', 'true');
       }
       return cloudList;
+    } else {
+      // 0 slips in cloud
+      const tx = idbDb.transaction('slips', 'readwrite');
+      await tx.store.clear();
+      await tx.done;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('MTA_SALARY_INIT', 'true');
+      }
+      return [];
     }
   } catch (e) {
     console.warn('Fallback to local slips cache:', e);

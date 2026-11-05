@@ -290,10 +290,57 @@ export const UploadPoModule: React.FC<UploadPoModuleProps> = ({
         poObj.grandTotal = Math.max(0, poObj.subtotal - poObj.discount + (poObj.ppnValue || 0));
       }
 
+      // Check if server included an AI notice banner
+      if (raw.aiNotice) {
+        setExtractError(raw.aiNotice);
+      }
+
       setExtractedData(poObj);
     } catch (err: any) {
-      console.error('Extraction error:', err);
-      setExtractError(err.message || 'Gagal mengekstrak dokumen PO dengan AI.');
+      console.warn('Extraction notice:', err?.message || err);
+      // Gracefully prepare the verification form with the uploaded files attached
+      const fallbackPo: PurchaseOrderData = {
+        id: `po-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        nomorPo: '',
+        tanggalPo: new Date().toISOString().split('T')[0],
+        buyerCompany: '',
+        buyerAddress: '',
+        buyerPhone: '',
+        picName: '',
+        vendorCompany: 'CV. MULIA TEKHNIK ABADI',
+        items: [
+          {
+            id: `item-${Date.now()}-1`,
+            itemNo: 1,
+            itemCode: '',
+            itemName: 'Item sesuai dokumen lampiran',
+            itemSpec: '',
+            qty: 1,
+            satuan: 'UNIT',
+            unitPrice: 0,
+            totalPrice: 0,
+          },
+        ],
+        subtotal: 0,
+        discount: 0,
+        discountPercent: 0,
+        ppnPercent: 0,
+        ppnValue: 0,
+        grandTotal: 0,
+        currency: 'IDR',
+        fileName: selectedFiles[0]?.name,
+        fileType: selectedFiles[0]?.type,
+        fileDataUrl: selectedFiles[0]?.base64,
+        confidenceScore: 'low',
+        unclearFields: ['nomorPo', 'buyerCompany', 'items', 'grandTotal'],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      setExtractedData(fallbackPo);
+      setExtractError(
+        err?.message ||
+          'Layanan AI sementara sedang dalam antrean padat. Formulir telah disiapkan dengan lampiran dokumen untuk Anda lengkapi secara manual.'
+      );
     } finally {
       setIsExtracting(false);
     }
@@ -309,6 +356,7 @@ export const UploadPoModule: React.FC<UploadPoModuleProps> = ({
 
   const handleDeletePo = async (id: string, poNum: string) => {
     if (confirm(`Apakah Anda yakin ingin menghapus PO "${poNum}" secara permanen dari server database?`)) {
+      setSavedPos((prev) => prev.filter((p) => p.id !== id));
       try {
         await deletePurchaseOrder(id);
       } catch (err: any) {

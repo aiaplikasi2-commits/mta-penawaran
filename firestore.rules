@@ -75,6 +75,11 @@ service cloud.firestore {
       allow delete: if isValidId(poId);
     }
 
+    // System Metadata
+    match /system/{systemId} {
+      allow read, write: if true;
+    }
+
     // Test connection doc
     match /test/{docId} {
       allow read, write: if true;

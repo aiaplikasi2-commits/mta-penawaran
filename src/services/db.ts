@@ -98,17 +98,27 @@ export async function getAllLetters(): Promise<LetterData[]> {
     const { collection, getDocs } = await import('firebase/firestore');
     const { db } = await import('./firebase.ts');
     const snap = await getDocs(collection(db, 'letters'));
+    const idbDb = await getDb();
+
     if (!snap.empty) {
       const cloudList = snap.docs.map((d) => d.data() as LetterData);
       cloudList.sort(
         (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
       );
-      // Update local cache
-      const idbDb = await getDb();
+      // Cleanly synchronize local cache
+      const tx = idbDb.transaction('letters', 'readwrite');
+      await tx.store.clear();
       for (const l of cloudList) {
-        await idbDb.put('letters', l);
+        await tx.store.put(l);
       }
+      await tx.done;
       return cloudList;
+    } else {
+      // 0 letters in cloud database
+      const tx = idbDb.transaction('letters', 'readwrite');
+      await tx.store.clear();
+      await tx.done;
+      return [];
     }
   } catch (e) {
     console.warn('Fallback to local letters cache:', e);
@@ -172,14 +182,25 @@ export async function getAllCustomers(): Promise<Customer[]> {
     const { collection, getDocs } = await import('firebase/firestore');
     const { db } = await import('./firebase.ts');
     const snap = await getDocs(collection(db, 'customers'));
+    const idbDb = await getDb();
+
     if (!snap.empty) {
       const cloudList = snap.docs.map((d) => d.data() as Customer);
       cloudList.sort((a, b) => (a.companyName || '').localeCompare(b.companyName || ''));
-      const idbDb = await getDb();
+      // Cleanly synchronize local cache
+      const tx = idbDb.transaction('customers', 'readwrite');
+      await tx.store.clear();
       for (const c of cloudList) {
-        await idbDb.put('customers', c);
+        await tx.store.put(c);
       }
+      await tx.done;
       return cloudList;
+    } else {
+      // 0 customers in cloud database
+      const tx = idbDb.transaction('customers', 'readwrite');
+      await tx.store.clear();
+      await tx.done;
+      return [];
     }
   } catch (e) {
     console.warn('Fallback to local customers cache:', e);

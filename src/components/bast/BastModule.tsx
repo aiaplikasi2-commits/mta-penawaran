@@ -7,6 +7,7 @@ import {
   deleteBast,
   generateNomorBastBaru,
 } from '../../services/bastDb.ts';
+import { subscribeBasts } from '../../services/cloudSync.ts';
 import { DaftarBast } from './DaftarBast.tsx';
 import { FormBast } from './FormBast.tsx';
 import { BastPreviewModal } from './BastPreviewModal.tsx';
@@ -44,6 +45,20 @@ export const BastModule: React.FC<BastModuleProps> = ({
 
   useEffect(() => {
     loadData();
+
+    // Subscribe to cloud real-time updates and deletions
+    let isMounted = true;
+    const unsub = subscribeBasts((newList) => {
+      if (isMounted) {
+        setBasts(newList);
+        setIsLoading(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsub();
+    };
   }, []);
 
   const handleCreateNew = () => {
@@ -80,11 +95,23 @@ export const BastModule: React.FC<BastModuleProps> = ({
   };
 
   const handleDeleteBast = async (id: string) => {
-    await deleteBast(id);
-    await loadData();
+    // 1. Immediately remove from local state
+    setBasts((prev) => prev.filter((b) => b.id !== id));
     if (editingBast?.id === id) {
       setEditingBast(null);
       setActiveView('daftar');
+    }
+    if (previewBast?.id === id) {
+      setPreviewBast(null);
+    }
+
+    // 2. Permanently delete from IndexedDB & Firestore
+    try {
+      await deleteBast(id);
+      onToast('BAST berhasil dihapus permanen');
+    } catch (err) {
+      console.error('Delete BAST error:', err);
+      onToast('Gagal menghapus BAST');
     }
   };
 

@@ -257,10 +257,19 @@ export default function App() {
 
   // Delete Letter
   const handleDeleteLetter = async (id: string) => {
-    await deleteLetter(id);
-    await loadAllData();
+    setLetters((prev) => prev.filter((l) => l.id !== id));
     if (activeLetterForEdit?.id === id) {
       setActiveLetterForEdit(null);
+    }
+    if (previewModalLetter?.id === id) {
+      setPreviewModalLetter(null);
+    }
+    try {
+      await deleteLetter(id);
+      showToast('Surat penawaran berhasil dihapus permanen');
+    } catch (err) {
+      console.error('Delete letter error:', err);
+      showToast('Gagal menghapus surat');
     }
   };
 
@@ -283,8 +292,14 @@ export default function App() {
   };
 
   const handleDeleteCustomer = async (id: string) => {
-    await deleteCustomer(id);
-    await loadAllData();
+    setCustomers((prev) => prev.filter((c) => c.id !== id));
+    try {
+      await deleteCustomer(id);
+      showToast('Data client berhasil dihapus');
+    } catch (err) {
+      console.error('Delete customer error:', err);
+      showToast('Gagal menghapus client');
+    }
   };
 
   // Settings handlers

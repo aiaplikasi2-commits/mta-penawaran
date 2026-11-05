@@ -455,6 +455,31 @@ export async function deletePurchaseOrderOnline(id: string): Promise<void> {
 // ----------------------------------------------------------------------
 export async function initializeAndMigrateToCloud(): Promise<void> {
   try {
+    // Check if the system has already completed initial bootstrap/migration
+    const metaDocRef = doc(db, 'system', 'metadata');
+    let isAlreadyInitialized = false;
+    try {
+      const metaSnap = await getDoc(metaDocRef);
+      if (metaSnap.exists()) {
+        isAlreadyInitialized = true;
+      }
+    } catch {}
+
+    if (typeof window !== 'undefined' && localStorage.getItem('MTA_APP_INITIALIZED_PERMANENT') === 'true') {
+      isAlreadyInitialized = true;
+    }
+
+    // If already initialized once, DO NOT re-seed empty collections!
+    // Empty collections mean user deliberately deleted records or collection is clean.
+    if (isAlreadyInitialized) {
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('MTA_APP_INITIALIZED_PERMANENT', 'true');
+      }
+      notifySyncState('TERSINKRON', 'Database online terhubung & siap digunakan');
+      return;
+    }
+
+    // First-time pristine bootstrap only
     // 1. Check settings
     const settingsSnap = await getDoc(doc(db, 'settings', 'company_settings'));
     if (!settingsSnap.exists()) {
@@ -541,6 +566,19 @@ export async function initializeAndMigrateToCloud(): Promise<void> {
           await setDoc(doc(db, 'slips', s.id), s, { merge: true });
         }
       } catch {}
+    }
+
+    // Record system initialization so re-seed never triggers again
+    try {
+      await setDoc(metaDocRef, {
+        initialized: true,
+        initializedAt: new Date().toISOString(),
+        version: '2.1.0',
+      }, { merge: true });
+    } catch {}
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('MTA_APP_INITIALIZED_PERMANENT', 'true');
     }
 
     notifySyncState('TERSINKRON', 'Database online terhubung & siap digunakan');
