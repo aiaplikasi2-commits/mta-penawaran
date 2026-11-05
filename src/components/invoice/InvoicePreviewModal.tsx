@@ -333,15 +333,11 @@ A/N ${invoice.bankAccountName || settings.bankAccountName || 'CV. MULIA TEKHNIK 
                   <span className="text-base font-extrabold font-mono">Rp {formatNumberIndo(invoice.total)}</span>
                 </div>
 
-                {/* Signature Box */}
+                {/* Signature Box (Tanpa stempel atau ttd sesuai permintaan) */}
                 <div className="text-right pt-2">
                   <p className="font-semibold text-xs mb-1">Hormat Kami,</p>
                   <div className="h-12 flex justify-end items-center my-1">
-                    <img
-                      src={settings.signatureImage || '/default-ttd-stempel.png'}
-                      alt="TTD"
-                      className="max-h-12 w-auto object-contain"
-                    />
+                    {/* Ruang tanda tangan kosong tanpa stempel / ttd */}
                   </div>
                   <p className="text-slate-400 text-[10px]">....................</p>
                   <div className="border-t border-black w-40 ml-auto my-0.5"></div>

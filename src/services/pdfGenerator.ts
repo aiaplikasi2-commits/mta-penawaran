@@ -60,14 +60,19 @@ export async function generateLetterPDF(
     format: 'a4',
   });
 
+  const itemCount = (letter.items || []).length;
+  // Adaptive single-page layout thresholds
+  const isCompact = itemCount >= 7;
+  const isUltraCompact = itemCount >= 11;
+
   const pageWidth = 210;
   const pageHeight = 297;
-  const marginLeft = 15;
-  const marginRight = 15;
-  const contentWidth = pageWidth - marginLeft - marginRight; // 180mm
-  const marginBottom = 18;
+  const marginLeft = 14;
+  const marginRight = 14;
+  const contentWidth = pageWidth - marginLeft - marginRight; // 182mm (wider printable area)
+  const marginBottom = isUltraCompact ? 8 : (isCompact ? 10 : 12);
 
-  let currentY = 10;
+  let currentY = isUltraCompact ? 7 : (isCompact ? 8.5 : 10);
 
   // 1. KOP SURAT
   if (settings.kopImage) {
@@ -76,7 +81,9 @@ export async function generateLetterPDF(
       if (kopData) {
         const targetWidth = contentWidth;
         const aspectRatio = kopData.width / kopData.height;
-        const targetHeight = Math.min(36, targetWidth / aspectRatio);
+        // Limit max height adaptively so table has maximum vertical room
+        const maxKopHeight = isUltraCompact ? 24 : (isCompact ? 28 : 34);
+        const targetHeight = Math.min(maxKopHeight, targetWidth / aspectRatio);
 
         doc.addImage(
           kopData.dataUrl,
@@ -88,109 +95,108 @@ export async function generateLetterPDF(
           undefined,
           'FAST'
         );
-        currentY += targetHeight + 4;
+        currentY += targetHeight + (isUltraCompact ? 2 : (isCompact ? 2.5 : 3.5));
       }
     } catch (e) {
       console.warn('Failed to load kop image', e);
-      // Fallback text header if image fails
       doc.setFont('times', 'bold');
-      doc.setFontSize(16);
+      doc.setFontSize(isUltraCompact ? 14 : 16);
       doc.setTextColor(15, 43, 72);
-      doc.text(settings.companyName, pageWidth / 2, currentY + 6, { align: 'center' });
-      currentY += 12;
+      doc.text(settings.companyName, pageWidth / 2, currentY + 5, { align: 'center' });
+      currentY += 10;
     }
   } else {
     // If no KOP image uploaded, draw standard clean double line
     doc.setFont('times', 'bold');
-    doc.setFontSize(16);
+    doc.setFontSize(isUltraCompact ? 14 : 16);
     doc.setTextColor(15, 43, 72);
-    doc.text(settings.companyName, pageWidth / 2, currentY + 6, { align: 'center' });
-    currentY += 10;
+    doc.text(settings.companyName, pageWidth / 2, currentY + 5, { align: 'center' });
+    currentY += 8;
     doc.setFont('times', 'normal');
-    doc.setFontSize(9);
+    doc.setFontSize(isUltraCompact ? 8 : 9);
     doc.setTextColor(50, 50, 50);
     const addrLines = settings.address.split('\n');
     addrLines.forEach((l) => {
       doc.text(l, pageWidth / 2, currentY, { align: 'center' });
-      currentY += 4;
+      currentY += 3.5;
     });
     doc.text(`Email: ${settings.email} | Telp: ${settings.phone}`, pageWidth / 2, currentY, { align: 'center' });
-    currentY += 4;
-    // Double line
+    currentY += 3.5;
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.6);
     doc.line(marginLeft, currentY, marginLeft + contentWidth, currentY);
-    currentY += 1;
+    currentY += 0.8;
     doc.setLineWidth(0.2);
     doc.line(marginLeft, currentY, marginLeft + contentWidth, currentY);
-    currentY += 5;
+    currentY += isUltraCompact ? 3 : 4.5;
   }
 
   // 2. TANGGAL SURAT (Rata Kanan)
   doc.setFont('times', 'bold');
-  doc.setFontSize(10.5);
+  doc.setFontSize(isUltraCompact ? 9.5 : 10.5);
   doc.setTextColor(0, 0, 0);
   const cityDate = `${settings.city || 'Bogor'}, ${formatIndoDate(letter.letterDate)}`;
   doc.text(cityDate, marginLeft + contentWidth, currentY, { align: 'right' });
-  currentY += 5;
+  currentY += isUltraCompact ? 3.5 : 4.5;
 
   // 3. IDENTITAS SURAT (Nomor, Lampiran, Perihal) - Rata Kiri
   doc.setFont('times', 'normal');
-  doc.setFontSize(10);
-  const labelWidth = 22;
+  doc.setFontSize(isUltraCompact ? 9 : 10);
+  const labelWidth = 20;
   const colonX = marginLeft + labelWidth;
-  const valueX = colonX + 3;
+  const valueX = colonX + 2.5;
+  const idLineH = isUltraCompact ? 3.6 : 4.2;
 
   doc.text('Nomor', marginLeft, currentY);
   doc.text(':', colonX, currentY);
   doc.text(letter.letterNumber || '-', valueX, currentY);
-  currentY += 4.5;
+  currentY += idLineH;
 
   doc.text('Lampiran', marginLeft, currentY);
   doc.text(':', colonX, currentY);
   doc.text(letter.attachment || '-', valueX, currentY);
-  currentY += 4.5;
+  currentY += idLineH;
 
   doc.text('perihal', marginLeft, currentY);
   doc.text(':', colonX, currentY);
   const subjLines = doc.splitTextToSize(letter.subject || '-', contentWidth - (valueX - marginLeft));
   doc.text(subjLines, valueX, currentY);
-  currentY += subjLines.length * 4.5 + 2;
+  currentY += subjLines.length * idLineH + (isUltraCompact ? 1.5 : 2);
 
   // 4. ALAMAT TUJUAN (Sebelah Kiri)
   doc.text('Kepada Yth.', marginLeft, currentY);
-  currentY += 4.5;
+  currentY += idLineH;
   if (letter.recipientName) {
     doc.text(letter.recipientName, marginLeft, currentY);
-    currentY += 4.5;
+    currentY += idLineH;
   }
   if (letter.companyName) {
     doc.text(letter.companyName, marginLeft, currentY);
-    currentY += 4.5;
+    currentY += idLineH;
   }
   if (letter.address) {
-    const addressLines = doc.splitTextToSize(letter.address, 90);
+    const addressLines = doc.splitTextToSize(letter.address, 95);
     doc.text(addressLines, marginLeft, currentY);
-    currentY += addressLines.length * 4.5;
+    currentY += addressLines.length * idLineH;
   }
   doc.text(letter.city ? `Di ${letter.city}` : 'Di Tempat', marginLeft, currentY);
-  currentY += 7;
+  currentY += isUltraCompact ? 4 : 5.5;
 
   // 5. PARAGRAF PEMBUKA
   const opening = letter.openingParagraph ||
     'Bersama ini kami mengajukan surat penawaran harga, berikut ini daftar harga yang kami tawarkan :';
   const openingLines = doc.splitTextToSize(opening, contentWidth);
   doc.text(openingLines, marginLeft, currentY);
-  currentY += openingLines.length * 4.5 + 3;
+  currentY += openingLines.length * idLineH + (isUltraCompact ? 2 : 2.8);
 
   // 6. TABEL PENAWARAN (Kolom: NO, DESKRIPSI, Qty, SATUAN, HARGA, TOTAL)
-  // Total width: 180mm
+  // Total width: 182mm
   const colWidths = {
-    no: 10,
-    desc: 85,
+    no: 9,
+    desc: 87,
     qty: 12,
     satuan: 18,
-    harga: 26,
+    harga: 27,
     total: 29,
   };
 
@@ -203,40 +209,45 @@ export async function generateLetterPDF(
     total: marginLeft + colWidths.no + colWidths.desc + colWidths.qty + colWidths.satuan + colWidths.harga,
   };
 
+  const headerHeight = isUltraCompact ? 5.6 : 6.6;
+
   const drawTableHeader = (y: number) => {
-    doc.setFillColor(220, 229, 224); // Sage/mint header background from reference
-    doc.rect(marginLeft, y, contentWidth, 7, 'F');
+    doc.setFillColor(220, 229, 224); // Sage/mint header background
+    doc.rect(marginLeft, y, contentWidth, headerHeight, 'F');
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.25);
-    doc.rect(marginLeft, y, contentWidth, 7, 'S');
+    doc.rect(marginLeft, y, contentWidth, headerHeight, 'S');
 
     // Column dividers
     let curX = marginLeft;
     [colWidths.no, colWidths.desc, colWidths.qty, colWidths.satuan, colWidths.harga].forEach((w) => {
       curX += w;
-      doc.line(curX, y, curX, y + 7);
+      doc.line(curX, y, curX, y + headerHeight);
     });
 
     doc.setFont('times', 'bold');
-    doc.setFontSize(9.5);
+    doc.setFontSize(isUltraCompact ? 8.5 : 9.5);
     doc.setTextColor(0, 0, 0);
 
-    doc.text('NO', colPositions.no + colWidths.no / 2, y + 4.8, { align: 'center' });
-    doc.text('DESKRIPSI', colPositions.desc + colWidths.desc / 2, y + 4.8, { align: 'center' });
-    doc.text('Qty', colPositions.qty + colWidths.qty / 2, y + 4.8, { align: 'center' });
-    doc.text('SATUAN', colPositions.satuan + colWidths.satuan / 2, y + 4.8, { align: 'center' });
-    doc.text('HARGA', colPositions.harga + colWidths.harga / 2, y + 4.8, { align: 'center' });
-    doc.text('TOTAL', colPositions.total + colWidths.total / 2, y + 4.8, { align: 'center' });
+    const headerTextY = y + (isUltraCompact ? 4.0 : 4.6);
+    doc.text('NO', colPositions.no + colWidths.no / 2, headerTextY, { align: 'center' });
+    doc.text('DESKRIPSI', colPositions.desc + colWidths.desc / 2, headerTextY, { align: 'center' });
+    doc.text('Qty', colPositions.qty + colWidths.qty / 2, headerTextY, { align: 'center' });
+    doc.text('SATUAN', colPositions.satuan + colWidths.satuan / 2, headerTextY, { align: 'center' });
+    doc.text('HARGA', colPositions.harga + colWidths.harga / 2, headerTextY, { align: 'center' });
+    doc.text('TOTAL', colPositions.total + colWidths.total / 2, headerTextY, { align: 'center' });
 
-    return y + 7;
+    return y + headerHeight;
   };
 
-  // Helper for pagination check
-  const checkPageOverflow = (requiredHeight: number) => {
+  // Helper for pagination check (NEVER draw table header outside table items)
+  const checkPageOverflow = (requiredHeight: number, inTable = false) => {
     if (currentY + requiredHeight > pageHeight - marginBottom) {
       doc.addPage();
-      currentY = 15;
-      currentY = drawTableHeader(currentY);
+      currentY = isUltraCompact ? 8 : 12;
+      if (inTable) {
+        currentY = drawTableHeader(currentY);
+      }
     }
   };
 
@@ -244,8 +255,9 @@ export async function generateLetterPDF(
 
   // Rows
   let subtotal = 0;
+  const tableFontSize = isUltraCompact ? 8.5 : (isCompact ? 9 : 9.5);
   doc.setFont('times', 'normal');
-  doc.setFontSize(9.5);
+  doc.setFontSize(tableFontSize);
 
   letter.items.forEach((item, index) => {
     const itemTotal = (item.qty || 0) * (item.price || 0);
@@ -253,9 +265,11 @@ export async function generateLetterPDF(
 
     // Wrap description text
     const descLines = doc.splitTextToSize(item.description || '-', colWidths.desc - 4);
-    const rowHeight = Math.max(6, descLines.length * 4.2 + 2);
+    const minRowH = isUltraCompact ? 4.8 : (isCompact ? 5.2 : 5.8);
+    const lineStep = isUltraCompact ? 3.3 : (isCompact ? 3.6 : 4.0);
+    const rowHeight = Math.max(minRowH, descLines.length * lineStep + (isUltraCompact ? 1.2 : 1.8));
 
-    checkPageOverflow(rowHeight);
+    checkPageOverflow(rowHeight, true);
 
     // Draw borders
     doc.setDrawColor(0, 0, 0);
@@ -270,7 +284,7 @@ export async function generateLetterPDF(
     });
 
     // Text content
-    const textBaseY = currentY + 4.2;
+    const textBaseY = currentY + (isUltraCompact ? 3.5 : 4.0);
     doc.setFont('times', 'normal');
     doc.setTextColor(0, 0, 0);
 
@@ -296,7 +310,7 @@ export async function generateLetterPDF(
     tradeInNominal = (letter.tradeIn.qty || 1) * (letter.tradeIn.unitValue || 0);
   }
 
-  let afterTradeIn = Math.max(0, subtotal - tradeInNominal);
+  const afterTradeIn = Math.max(0, subtotal - tradeInNominal);
 
   let discountNominal = 0;
   if (letter.discountActive) {
@@ -317,32 +331,34 @@ export async function generateLetterPDF(
   const grandTotal = dpp + ppnNominal;
 
   // Helper function to draw a summary row
+  const summaryRowH = isUltraCompact ? 4.8 : (isCompact ? 5.2 : 6.0);
   const drawSummaryRow = (label: string, valueStr: string, bgColor?: [number, number, number], isBold = false) => {
-    checkPageOverflow(6.5);
-    const rowHeight = 6.5;
+    checkPageOverflow(summaryRowH, false);
 
     if (bgColor) {
       doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
-      doc.rect(marginLeft, currentY, contentWidth, rowHeight, 'F');
+      doc.rect(marginLeft, currentY, contentWidth, summaryRowH, 'F');
     }
 
     doc.setDrawColor(0, 0, 0);
     doc.setLineWidth(0.2);
-    doc.rect(marginLeft, currentY, contentWidth, rowHeight, 'S');
+    doc.rect(marginLeft, currentY, contentWidth, summaryRowH, 'S');
 
     // Split between label area (up to total column) and total value column
     const labelAreaWidth = contentWidth - colWidths.total;
-    doc.line(marginLeft + labelAreaWidth, currentY, marginLeft + labelAreaWidth, currentY + rowHeight);
+    doc.line(marginLeft + labelAreaWidth, currentY, marginLeft + labelAreaWidth, currentY + summaryRowH);
 
     doc.setFont('times', isBold ? 'bold' : 'normal');
+    doc.setFontSize(tableFontSize);
     doc.setTextColor(0, 0, 0);
-    doc.text(label, marginLeft + 2, currentY + 4.5);
-    doc.text(valueStr, marginLeft + contentWidth - 2, currentY + 4.5, { align: 'right' });
+    const sumTextY = currentY + (isUltraCompact ? 3.5 : 4.0);
+    doc.text(label, marginLeft + 2, sumTextY);
+    doc.text(valueStr, marginLeft + contentWidth - 2, sumTextY, { align: 'right' });
 
-    currentY += rowHeight;
+    currentY += summaryRowH;
   };
 
-  // Subtotal row (like in reference image: empty label or Subtotal with value 49,310,000, soft blue tint #d7e0ea)
+  // Subtotal row (soft blue tint #d7e0ea)
   drawSummaryRow('', formatNumberIndo(subtotal), [215, 224, 234], true);
 
   // Trade In if active
@@ -350,7 +366,7 @@ export async function generateLetterPDF(
     drawSummaryRow(`Trade In (${letter.tradeIn.name || 'Barang Bekas'})`, `-${formatNumberIndo(tradeInNominal)}`, [240, 244, 248], true);
   }
 
-  // Diskon row (highlighted with soft blue #d7e0ea, e.g. 810,000)
+  // Diskon row (highlighted with soft blue #d7e0ea)
   if (letter.discountActive && discountNominal > 0) {
     drawSummaryRow('Diskon', formatNumberIndo(discountNominal), [215, 224, 234], true);
   }
@@ -363,32 +379,36 @@ export async function generateLetterPDF(
     drawSummaryRow('PPN', '', undefined, false);
   }
 
-  // Grand Total row (sage/mint green highlight #e2ece9, bold total e.g. 48,500,000)
+  // Grand Total row (sage/mint green highlight #e2ece9, bold total)
   drawSummaryRow('Total', formatNumberIndo(grandTotal), [226, 236, 233], true);
 
-  currentY += 5;
+  currentY += isUltraCompact ? 2.5 : 4;
 
   // 7. PARAGRAF PENUTUP
-  checkPageOverflow(30);
   const closing = letter.closingParagraph ||
     `Demikian Penawaran harga ini kami sampaikan, bilamana ada informasi yang perlu diketahui mengenai penawaran ini lebih lanjut, maka bapak / ibu dapat menghubungi kami lebih lanjut.\n\nAtas perhatiannya kami ucapkan terima kasih.`;
 
   const closingLines = doc.splitTextToSize(closing, contentWidth);
+  const closingLineH = isUltraCompact ? 3.4 : 4.0;
+  const totalClosingH = closingLines.length * closingLineH + (isUltraCompact ? 2 : 4);
+
+  // Check overflow for closing + signature together if space permits
+  checkPageOverflow(totalClosingH + (isUltraCompact ? 20 : 30), false);
+
   doc.setFont('times', 'normal');
-  doc.setFontSize(10);
+  doc.setFontSize(isUltraCompact ? 8.5 : 9.5);
   doc.setTextColor(0, 0, 0);
   doc.text(closingLines, marginLeft, currentY);
-  currentY += closingLines.length * 4.5 + 8;
+  currentY += totalClosingH;
 
   // 8. TANDA TANGAN (Kanan Bawah)
-  checkPageOverflow(40);
   const signBlockWidth = 60;
   const signBlockX = marginLeft + contentWidth - signBlockWidth;
 
   doc.setFont('times', 'normal');
-  doc.setFontSize(10);
+  doc.setFontSize(isUltraCompact ? 8.5 : 9.5);
   doc.text('Hormat Kami,', signBlockX + signBlockWidth / 2, currentY, { align: 'center' });
-  currentY += 4;
+  currentY += isUltraCompact ? 2.5 : 3.5;
 
   // Stamp and signature image overlay
   const signImgToUse = settings.signatureImage || settings.stampImage;
@@ -396,8 +416,8 @@ export async function generateLetterPDF(
     try {
       const signData = await loadImageData(signImgToUse);
       if (signData) {
-        const targetW = 42;
-        const targetH = Math.min(22, (targetW * signData.height) / signData.width);
+        const targetW = isUltraCompact ? 34 : 40;
+        const targetH = Math.min(isUltraCompact ? 16 : 20, (targetW * signData.height) / signData.width);
         doc.addImage(
           signData.dataUrl,
           'PNG',
@@ -408,20 +428,20 @@ export async function generateLetterPDF(
           undefined,
           'FAST'
         );
-        currentY += targetH + 2;
+        currentY += targetH + 1.5;
       } else {
-        currentY += 18;
+        currentY += isUltraCompact ? 14 : 17;
       }
     } catch {
-      currentY += 18;
+      currentY += isUltraCompact ? 14 : 17;
     }
   } else {
-    currentY += 18;
+    currentY += isUltraCompact ? 14 : 17;
   }
 
   // Signatory Name in Bold
   doc.setFont('times', 'bold');
-  doc.setFontSize(10.5);
+  doc.setFontSize(isUltraCompact ? 9.5 : 10.5);
   doc.text(settings.signatoryName || 'Muhamad Ridho', signBlockX + signBlockWidth / 2, currentY, { align: 'center' });
 
   return doc;

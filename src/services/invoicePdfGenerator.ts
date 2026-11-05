@@ -437,19 +437,8 @@ export async function generateInvoicePDF(
   doc.setTextColor(0, 0, 0);
   doc.text('Hormat Kami,', rightBoxX + rightBoxW - 3, sigY, { align: 'right' });
 
-  sigY += 3;
-
-  // Stamp / Signature Image if available
-  try {
-    const ttdImg = await loadImageData(settings.signatureImage || '/default-ttd-stempel.png');
-    if (ttdImg) {
-      doc.addImage(ttdImg.dataUrl, 'PNG', rightBoxX + rightBoxW - 40, sigY, 36, 17, undefined, 'FAST');
-    }
-  } catch {
-    // ignore
-  }
-
-  sigY += 19;
+  // Sesuai instruksi: Invoice tidak membubuhkan stempel atau ttd (ruang tanda tangan bersih)
+  sigY += 20;
 
   // Dotted Line & Underline
   doc.setFont('helvetica', 'normal');

@@ -13,7 +13,7 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
-app.use(express.json({ limit: '10mb' }));
+app.use(express.json({ limit: '25mb' }));
 
 // Health and AI status check endpoint
 app.get('/api/ai-status', (req, res) => {
@@ -283,7 +283,8 @@ app.post('/api/po/extract', async (req, res) => {
 
     const parts: any[] = [];
     for (const f of files) {
-      const cleanBase64 = String(f.base64 || '').replace(/^data:[^;]+;base64,/, '');
+      const rawBase64 = f.base64 || f.base64Data || '';
+      const cleanBase64 = String(rawBase64).replace(/^data:[^;]+;base64,/, '');
       if (cleanBase64) {
         parts.push({
           inlineData: {
@@ -295,7 +296,7 @@ app.post('/api/po/extract', async (req, res) => {
     }
 
     if (parts.length === 0) {
-      return res.status(400).json({ error: 'Berkas dokumen tidak valid atau kosong.' });
+      return res.status(400).json({ error: 'Berkas dokumen tidak terbaca atau format data kosong. Silakan unggah ulang gambar atau file PDF dokumen PO.' });
     }
 
     const instruction = `Anda adalah ahli OCR dan Analisis Dokumen Finansial / Procurement (Purchase Order) profesional.
@@ -418,8 +419,13 @@ Output WAJIB berupa format JSON murni berikut tanpa pembungkus markdown:
     return res.json({ success: true, data: result });
   } catch (error: any) {
     console.error('PO extraction error:', error);
-    return res.status(500).json({
-      error: error?.message || 'Gagal mengekstrak data Purchase Order dengan AI.',
+    const msg = String(error?.message || '');
+    const isRateLimit = error?.status === 429 || /rate limit|resource_exhausted|quota|429/i.test(msg);
+    return res.status(isRateLimit ? 429 : 500).json({
+      error: isRateLimit
+        ? 'Batas panggilan AI (Rate Limit / Quota) sementara tercapai. Harap tunggu 30-60 detik atau gunakan opsi "Isi Form Manual".'
+        : msg || 'Gagal mengekstrak data Purchase Order dengan AI.',
+      isRateLimit,
     });
   }
 });
@@ -434,8 +440,11 @@ app.post('/api/po/chat', async (req, res) => {
       });
     }
 
-    const { message = '', poData = {}, history = [] } = req.body;
-    if (!message || !message.trim()) {
+    const messageText = String(req.body.message || req.body.question || '').trim();
+    const poData = req.body.poData || {};
+    const rawHistory = req.body.history || req.body.chatHistory || [];
+
+    if (!messageText) {
       return res.status(400).json({ error: 'Pesan pertanyaan tidak boleh kosong.' });
     }
 
@@ -475,12 +484,12 @@ ATURAN KOMUNIKASI:
 2. Jawab HANYA berdasarkan fakta yang tertulis pada dokumen PO di atas. Jangan mengarang data! Jika informasi tidak ada di dokumen, katakan terus terang bahwa data tidak tertera di dokumen PO tersebut.
 3. Buat teks jawaban yang bersih, to-the-point, dan enak didengar jika dibacakan via Text-to-Speech (suara).`;
 
-    const chatHistoryText = (history || [])
+    const chatHistoryText = (rawHistory || [])
       .slice(-6)
       .map((h: any) => `${h.role === 'user' ? 'User' : 'Asisten'}: ${h.text}`)
       .join('\n');
 
-    const prompt = `${contextPrompt}\n\nRIWAYAT PERCAKAPAN SEBELUMNYA:\n${chatHistoryText}\n\nUser: ${message}\nAsisten:`;
+    const prompt = `${contextPrompt}\n\nRIWAYAT PERCAKAPAN SEBELUMNYA:\n${chatHistoryText}\n\nUser: ${messageText}\nAsisten:`;
 
     const response = await ai.models.generateContent({
       model: 'gemini-3.8-flash',

@@ -75,10 +75,46 @@ export const UploadPoModule: React.FC<UploadPoModuleProps> = ({
     };
   }, []);
 
-  const convertFileToBase64 = (file: File): Promise<string> => {
+  const compressAndConvertFile = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
+      if (!file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = (err) => reject(err);
+        reader.readAsDataURL(file);
+        return;
+      }
+
       const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const maxDim = 1600;
+          let w = img.width;
+          let h = img.height;
+          if (w > maxDim || h > maxDim) {
+            if (w > h) {
+              h = Math.round((h * maxDim) / w);
+              w = maxDim;
+            } else {
+              w = Math.round((w * maxDim) / h);
+              h = maxDim;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            resolve(reader.result as string);
+            return;
+          }
+          ctx.drawImage(img, 0, 0, w, h);
+          resolve(canvas.toDataURL('image/jpeg', 0.82));
+        };
+        img.onerror = () => resolve(reader.result as string);
+        img.src = reader.result as string;
+      };
       reader.onerror = (err) => reject(err);
       reader.readAsDataURL(file);
     });
@@ -96,13 +132,13 @@ export const UploadPoModule: React.FC<UploadPoModuleProps> = ({
       }
 
       try {
-        const base64 = await convertFileToBase64(f);
+        const base64 = await compressAndConvertFile(f);
         newFiles.push({
           id: `file-${Date.now()}-${Math.random().toString(36).substring(2, 5)}`,
           file: f,
           previewUrl: f.type.startsWith('image/') ? base64 : '',
           name: f.name,
-          type: f.type,
+          type: f.type.startsWith('image/') ? 'image/jpeg' : f.type,
           base64,
         });
       } catch (err) {
@@ -111,6 +147,48 @@ export const UploadPoModule: React.FC<UploadPoModuleProps> = ({
     }
 
     setSelectedFiles((prev) => [...prev, ...newFiles]);
+  };
+
+  const handleManualEntry = () => {
+    const blankPo: PurchaseOrderData = {
+      id: `po-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+      nomorPo: '',
+      tanggalPo: new Date().toISOString().split('T')[0],
+      buyerCompany: '',
+      buyerAddress: '',
+      buyerPhone: '',
+      picName: '',
+      vendorCompany: 'CV. MULIA TEKHNIK ABADI',
+      items: [
+        {
+          id: `item-${Date.now()}-1`,
+          itemNo: 1,
+          itemCode: '',
+          itemName: '',
+          itemSpec: '',
+          qty: 1,
+          satuan: 'UNIT',
+          unitPrice: 0,
+          totalPrice: 0,
+        },
+      ],
+      subtotal: 0,
+      discount: 0,
+      discountPercent: 0,
+      ppnPercent: 0,
+      ppnValue: 0,
+      grandTotal: 0,
+      currency: 'IDR',
+      fileName: selectedFiles[0]?.name,
+      fileType: selectedFiles[0]?.type,
+      fileDataUrl: selectedFiles[0]?.base64,
+      confidenceScore: 'high',
+      unclearFields: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setExtractedData(blankPo);
+    setExtractError(null);
   };
 
   const handleRemoveFile = (id: string) => {
@@ -128,10 +206,11 @@ export const UploadPoModule: React.FC<UploadPoModuleProps> = ({
     setSaveSuccessMsg(null);
 
     try {
-      // Send files to backend Gemini OCR endpoint
+      // Send files to backend Gemini OCR endpoint with both base64 and base64Data
       const payloadFiles = selectedFiles.map((sf) => ({
+        base64: sf.base64,
         base64Data: sf.base64,
-        mimeType: sf.type,
+        mimeType: sf.type.startsWith('image/') ? 'image/jpeg' : sf.type,
       }));
 
       const res = await fetch('/api/po/extract', {
@@ -434,13 +513,22 @@ export const UploadPoModule: React.FC<UploadPoModuleProps> = ({
                     ))}
                   </div>
 
-                  {/* Extract Button */}
-                  <div className="pt-4 flex flex-col sm:flex-row items-center justify-end gap-3">
+                  {/* Extract Button & Manual Fallback */}
+                  <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-3">
+                    <button
+                      type="button"
+                      onClick={handleManualEntry}
+                      className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs md:text-sm font-semibold transition active:scale-95 border border-slate-200"
+                    >
+                      <PlusCircle className="w-4 h-4 text-slate-500" />
+                      <span>Input / Edit Manual</span>
+                    </button>
+
                     <button
                       type="button"
                       disabled={isExtracting}
                       onClick={handleStartExtraction}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl text-xs md:text-sm font-bold shadow-md hover:shadow-lg transition active:scale-95 disabled:opacity-50"
+                      className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-700 hover:to-indigo-800 text-white rounded-xl text-xs md:text-sm font-bold shadow-md hover:shadow-lg transition active:scale-95 disabled:opacity-50"
                     >
                       {isExtracting ? (
                         <>
@@ -458,17 +546,26 @@ export const UploadPoModule: React.FC<UploadPoModuleProps> = ({
                 </div>
               )}
 
-              {/* Extraction Error */}
+              {/* Extraction Error with Instant Manual Form Action */}
               {extractError && (
-                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-3 text-red-900 text-xs md:text-sm">
-                  <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-                  <div>
-                    <h4 className="font-bold">Gagal Mengekstrak Dokumen</h4>
-                    <p className="mt-0.5 text-xs text-red-800">{extractError}</p>
-                    <p className="mt-2 text-[11px] text-gray-600">
-                      Pastikan gambar terlihat jelas, teks terbaca, atau gunakan file format lain.
-                    </p>
+                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-red-900 text-xs md:text-sm">
+                  <div className="flex items-start gap-3">
+                    <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold">Gagal Mengekstrak Dokumen</h4>
+                      <p className="mt-0.5 text-xs text-red-800">{extractError}</p>
+                      <p className="mt-1 text-[11px] text-gray-600">
+                        Anda dapat mencoba lagi atau langsung mengisi formulir PO secara manual dari berkas yang diunggah.
+                      </p>
+                    </div>
                   </div>
+                  <button
+                    type="button"
+                    onClick={handleManualEntry}
+                    className="shrink-0 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition shadow-xs"
+                  >
+                    Lanjutkan Isi Form Manual
+                  </button>
                 </div>
               )}
             </div>
