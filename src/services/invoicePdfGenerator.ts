@@ -204,23 +204,28 @@ export async function generateInvoicePDF(
 
   currentY += 7;
 
-  // 3. REFERENSI PESANAN BOX (Full Width 180mm)
-  const refBoxH = 6.5;
-  doc.setDrawColor(0, 0, 0);
-  doc.setLineWidth(0.4);
-  doc.rect(marginX, currentY, contentWidth, refBoxH);
+  // 3. REFERENSI PESANAN BOX (Hanya ditampilkan jika nomor PO diisi)
+  const hasPoRef = Boolean(invoice.nomorPo && invoice.nomorPo.trim() && invoice.nomorPo.trim() !== '-');
+  if (hasPoRef) {
+    const refBoxH = 6.5;
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.4);
+    doc.rect(marginX, currentY, contentWidth, refBoxH);
 
-  doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.setTextColor(60, 60, 60);
-  doc.text('Referensi Pesanan:', marginX + 3, currentY + 4.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(60, 60, 60);
+    doc.text('Referensi Pesanan:', marginX + 3, currentY + 4.5);
 
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(0, 0, 0);
-  const poRefText = `Sesuai dengan Nomor PO ${invoice.nomorPo || '-'}`;
-  doc.text(poRefText, marginX + contentWidth - 3, currentY + 4.5, { align: 'right' });
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 0, 0);
+    const poRefText = `Sesuai dengan Nomor PO ${invoice.nomorPo.trim()}`;
+    doc.text(poRefText, marginX + contentWidth - 3, currentY + 4.5, { align: 'right' });
 
-  currentY += refBoxH + 4.5;
+    currentY += refBoxH + 4.5;
+  } else {
+    currentY += 1.5;
+  }
 
   // 4. ITEMS TABLE
   // Columns: No(12), Uraian Pekerjaan / Keterangan(82), Qty(14), Satuan(18), Harga Satuan(26), Jumlah(Rp)(28) = 180mm

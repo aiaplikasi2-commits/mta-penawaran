@@ -240,13 +240,15 @@ A/N ${invoice.bankAccountName || settings.bankAccountName || 'CV. MULIA TEKHNIK 
               </div>
             </div>
 
-            {/* 3. REFERENSI PESANAN BOX */}
-            <div className="border border-black px-3 py-1.5 flex justify-between items-center text-xs mb-3 font-sans">
-              <span className="text-slate-600 font-medium">Referensi Pesanan:</span>
-              <span className="font-bold text-slate-900">
-                Sesuai dengan Nomor PO {invoice.nomorPo || '-'}
-              </span>
-            </div>
+            {/* 3. REFERENSI PESANAN BOX (Hanya jika nomor PO diisi) */}
+            {invoice.nomorPo && invoice.nomorPo.trim() && invoice.nomorPo.trim() !== '-' && (
+              <div className="border border-black px-3 py-1.5 flex justify-between items-center text-xs mb-3 font-sans">
+                <span className="text-slate-600 font-medium">Referensi Pesanan:</span>
+                <span className="font-bold text-slate-900">
+                  Sesuai dengan Nomor PO {invoice.nomorPo.trim()}
+                </span>
+              </div>
+            )}
 
             {/* 4. ITEMS TABLE */}
             <div className="border-2 border-black mb-4 overflow-hidden">

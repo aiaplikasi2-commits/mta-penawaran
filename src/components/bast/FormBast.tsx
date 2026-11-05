@@ -18,6 +18,7 @@ import {
 import type { BastData, BastItem } from '../../types/bast.ts';
 import type { CompanySettings, Customer, LetterData } from '../../types/index.ts';
 import { generateHariTerbilang, generateNomorBastBaru } from '../../services/bastDb.ts';
+import { getAllPurchaseOrders } from '../../services/poDb.ts';
 
 interface FormBastProps {
   initialBast?: BastData | null;
@@ -95,6 +96,15 @@ export const FormBast: React.FC<FormBastProps> = ({
   const [kota, setKota] = useState(initialBast?.kota || settings.city || 'Bogor');
   const [status, setStatus] = useState<'Draft' | 'Selesai'>(initialBast?.status || 'Selesai');
   const [isSaving, setIsSaving] = useState(false);
+  const [savedPos, setSavedPos] = useState<any[]>([]);
+
+  useEffect(() => {
+    getAllPurchaseOrders().then((list) => {
+      if (list && list.length > 0) {
+        setSavedPos(list);
+      }
+    });
+  }, []);
 
   // Automatically update hariTerbilang when tanggalBast changes
   const handleDateChange = (val: string) => {
@@ -203,8 +213,21 @@ export const FormBast: React.FC<FormBastProps> = ({
       }
     });
 
+    // 3. Dari Upload PO / Cloud Database PO
+    savedPos.forEach((p) => {
+      const po = (p.nomorPo || '').trim();
+      if (po && !map.has(po)) {
+        map.set(po, {
+          po,
+          clientName: p.buyerCompany,
+          contactName: p.picName,
+          address: p.buyerAddress,
+        });
+      }
+    });
+
     return Array.from(map.values());
-  }, [letters, existingBasts]);
+  }, [letters, existingBasts, savedPos]);
 
   // Cek apakah nomor BAST ganda / duplikat dengan BAST lain
   const isDuplicateBastNumber = useMemo(() => {

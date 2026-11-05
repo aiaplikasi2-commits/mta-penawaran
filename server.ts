@@ -256,6 +256,249 @@ ATURAN WAJIB:
   }
 });
 
+// AI Purchase Order (PO) document OCR and extraction endpoint
+app.post('/api/po/extract', async (req, res) => {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(400).json({
+        error:
+          'Layanan AI belum dikonfigurasi pada server (GEMINI_API_KEY belum tersedia). Anda tetap dapat mengisi data PO secara manual.',
+      });
+    }
+
+    const { files = [] } = req.body;
+    if (!files || files.length === 0) {
+      return res.status(400).json({ error: 'Tidak ada berkas dokumen PO yang dikirim.' });
+    }
+
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
+
+    const parts: any[] = [];
+    for (const f of files) {
+      const cleanBase64 = String(f.base64 || '').replace(/^data:[^;]+;base64,/, '');
+      if (cleanBase64) {
+        parts.push({
+          inlineData: {
+            data: cleanBase64,
+            mimeType: f.mimeType || 'image/jpeg',
+          },
+        });
+      }
+    }
+
+    if (parts.length === 0) {
+      return res.status(400).json({ error: 'Berkas dokumen tidak valid atau kosong.' });
+    }
+
+    const instruction = `Anda adalah ahli OCR dan Analisis Dokumen Finansial / Procurement (Purchase Order) profesional.
+Tugas Anda adalah membaca, mengenali, dan mengekstrak seluruh informasi dari dokumen Purchase Order (PO) yang diberikan secara presisi dan objektif.
+
+ATURAN UTAMA:
+1. JANGAN PERNAH MENGARANG DATA. Jika suatu informasi tidak tertulis atau tidak dapat dibaca di dokumen, kembalikan string kosong "" atau angka 0, dan catat nama field tersebut di array "unclearFields".
+2. Format Tanggal PO gunakan YYYY-MM-DD jika tanggal ditemukan.
+3. Rincian Barang / Jasa (items):
+   - Ekstrak setiap baris barang/jasa dengan lengkap: No urut (itemNo), Kode barang (itemCode), Nama barang/jasa (itemName), Deskripsi/spesifikasi (itemSpec), Kuantitas (qty, angka), Satuan (satuan, misal: PCS, UNIT, BOX, LOT, SET, KG, dll), Harga Satuan (unitPrice, angka murni tanpa pemisah ribuan), dan Total Harga baris (totalPrice).
+4. Nilai Finansial:
+   - Ambil Subtotal, Diskon (nominal), Diskon (%) bila ada, PPN (%) dan nilai nominal PPN, Grand Total, serta Mata Uang (currency, default "IDR").
+5. Informasi Tambahan:
+   - Alamat pengiriman (deliveryAddress), tanggal pengiriman (deliveryDate), syarat pembayaran (paymentTerms / TOP), catatan khusus (notes).
+   - Periksa apakah dokumen memiliki tanda tangan (hasSignature: boolean) dan stempel (hasStamp: boolean).
+6. Berikan tingkat keyakinan pembacaan: "high", "medium", atau "low" pada "confidenceScore".
+
+Output WAJIB berupa format JSON murni berikut tanpa pembungkus markdown:
+{
+  "nomorPo": "string",
+  "tanggalPo": "string YYYY-MM-DD",
+  "buyerCompany": "string nama perusahaan pembeli/pembuat PO",
+  "buyerAddress": "string alamat pembeli",
+  "buyerPhone": "string nomor telepon pembeli",
+  "picName": "string PIC atau Attention",
+  "vendorCompany": "string nama supplier / vendor",
+  "items": [
+    {
+      "itemNo": 1,
+      "itemCode": "string atau kosong",
+      "itemName": "string nama barang/jasa",
+      "itemSpec": "string spesifikasi barang",
+      "qty": 1,
+      "satuan": "UNIT",
+      "unitPrice": 100000,
+      "totalPrice": 100000
+    }
+  ],
+  "subtotal": 100000,
+  "discount": 0,
+  "discountPercent": 0,
+  "ppnPercent": 11,
+  "ppnValue": 11000,
+  "grandTotal": 111000,
+  "currency": "IDR",
+  "deliveryDate": "string",
+  "paymentTerms": "string",
+  "deliveryAddress": "string",
+  "notes": "string",
+  "hasSignature": true,
+  "hasStamp": true,
+  "confidenceScore": "high",
+  "unclearFields": []
+}`;
+
+    parts.push(instruction);
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: parts,
+      config: {
+        responseMimeType: 'application/json',
+      },
+    });
+
+    const text = response.text || '{}';
+    let data: any;
+    try {
+      data = JSON.parse(text);
+    } catch {
+      const match = text.match(/\{[\s\S]*\}/);
+      if (match) {
+        data = JSON.parse(match[0]);
+      } else {
+        throw new Error('Format output JSON dari AI tidak dapat dibaca.');
+      }
+    }
+
+    // Clean up items format to guarantee array with id
+    const items = Array.isArray(data.items)
+      ? data.items.map((it: any, idx: number) => ({
+          id: `item-${Date.now()}-${idx}`,
+          itemNo: Number(it.itemNo) || idx + 1,
+          itemCode: String(it.itemCode || ''),
+          itemName: String(it.itemName || it.description || `Item #${idx + 1}`),
+          itemSpec: String(it.itemSpec || ''),
+          qty: Number(it.qty) || 1,
+          satuan: String(it.satuan || 'UNIT').toUpperCase(),
+          unitPrice: Number(it.unitPrice) || 0,
+          totalPrice: Number(it.totalPrice) || (Number(it.qty) || 1) * (Number(it.unitPrice) || 0),
+        }))
+      : [];
+
+    const result = {
+      nomorPo: String(data.nomorPo || '').trim(),
+      tanggalPo: String(data.tanggalPo || '').trim(),
+      buyerCompany: String(data.buyerCompany || '').trim(),
+      buyerAddress: String(data.buyerAddress || '').trim(),
+      buyerPhone: String(data.buyerPhone || '').trim(),
+      picName: String(data.picName || '').trim(),
+      vendorCompany: String(data.vendorCompany || '').trim(),
+      items,
+      subtotal: Number(data.subtotal) || 0,
+      discount: Number(data.discount) || 0,
+      discountPercent: Number(data.discountPercent) || 0,
+      ppnPercent: Number(data.ppnPercent) || 0,
+      ppnValue: Number(data.ppnValue) || 0,
+      grandTotal: Number(data.grandTotal) || 0,
+      currency: String(data.currency || 'IDR').toUpperCase(),
+      deliveryDate: String(data.deliveryDate || '').trim(),
+      paymentTerms: String(data.paymentTerms || '').trim(),
+      deliveryAddress: String(data.deliveryAddress || '').trim(),
+      notes: String(data.notes || '').trim(),
+      hasSignature: Boolean(data.hasSignature),
+      hasStamp: Boolean(data.hasStamp),
+      confidenceScore: data.confidenceScore || 'high',
+      unclearFields: Array.isArray(data.unclearFields) ? data.unclearFields : [],
+    };
+
+    return res.json({ success: true, data: result });
+  } catch (error: any) {
+    console.error('PO extraction error:', error);
+    return res.status(500).json({
+      error: error?.message || 'Gagal mengekstrak data Purchase Order dengan AI.',
+    });
+  }
+});
+
+// Interactive AI Chat (Text & Voice) about the active PO document
+app.post('/api/po/chat', async (req, res) => {
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      return res.status(400).json({
+        error: 'Layanan AI belum dikonfigurasi pada server (GEMINI_API_KEY belum tersedia).',
+      });
+    }
+
+    const { message = '', poData = {}, history = [] } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'Pesan pertanyaan tidak boleh kosong.' });
+    }
+
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
+
+    const contextPrompt = `Anda adalah Asisten Pembaca Dokumen PO (Purchase Order) untuk CV. MULIA TEKHNIK ABADI.
+Anda sedang berinteraksi dengan staf administrasi yang sedang membuka dokumen Purchase Order berikut:
+
+DATA PURCHASE ORDER YANG DIUNGGAH:
+- Nomor PO: ${poData.nomorPo || '-'}
+- Tanggal PO: ${poData.tanggalPo || '-'}
+- Perusahaan Penerbit (Buyer): ${poData.buyerCompany || '-'}
+- Alamat Pembeli: ${poData.buyerAddress || '-'}
+- Telepon Pembeli: ${poData.buyerPhone || '-'}
+- Nama PIC / Contact: ${poData.picName || '-'}
+- Vendor / Supplier: ${poData.vendorCompany || '-'}
+- Subtotal: Rp ${(Number(poData.subtotal) || 0).toLocaleString('id-ID')}
+- Diskon: Rp ${(Number(poData.discount) || 0).toLocaleString('id-ID')} (${poData.discountPercent || 0}%)
+- PPN: Rp ${(Number(poData.ppnValue) || 0).toLocaleString('id-ID')} (${poData.ppnPercent || 0}%)
+- Grand Total: Rp ${(Number(poData.grandTotal) || 0).toLocaleString('id-ID')} ${poData.currency || 'IDR'}
+- Ketentuan Pembayaran: ${poData.paymentTerms || '-'}
+- Tanggal / Alamat Kirim: ${poData.deliveryDate || '-'} | ${poData.deliveryAddress || '-'}
+- Catatan: ${poData.notes || '-'}
+- Tanda Tangan: ${poData.hasSignature ? 'Ada' : 'Tidak terdeteksi'} | Stempel: ${poData.hasStamp ? 'Ada' : 'Tidak terdeteksi'}
+- Daftar Barang/Jasa (${(poData.items || []).length} item):
+${(poData.items || []).map((it: any, i: number) => `  ${i + 1}. [${it.itemCode || '-'}] ${it.itemName} - ${it.qty} ${it.satuan} @ Rp ${(Number(it.unitPrice) || 0).toLocaleString('id-ID')} = Rp ${(Number(it.totalPrice) || 0).toLocaleString('id-ID')}`).join('\n')}
+
+ATURAN KOMUNIKASI:
+1. Jawab dalam bahasa Indonesia yang ringkas, sopan, profesional, dan ramah.
+2. Jawab HANYA berdasarkan fakta yang tertulis pada dokumen PO di atas. Jangan mengarang data! Jika informasi tidak ada di dokumen, katakan terus terang bahwa data tidak tertera di dokumen PO tersebut.
+3. Buat teks jawaban yang bersih, to-the-point, dan enak didengar jika dibacakan via Text-to-Speech (suara).`;
+
+    const chatHistoryText = (history || [])
+      .slice(-6)
+      .map((h: any) => `${h.role === 'user' ? 'User' : 'Asisten'}: ${h.text}`)
+      .join('\n');
+
+    const prompt = `${contextPrompt}\n\nRIWAYAT PERCAKAPAN SEBELUMNYA:\n${chatHistoryText}\n\nUser: ${message}\nAsisten:`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: prompt,
+    });
+
+    return res.json({
+      success: true,
+      reply: response.text || 'Maaf, saya belum dapat menemukan informasi tersebut dalam dokumen PO.',
+    });
+  } catch (error: any) {
+    console.error('PO chat error:', error);
+    return res.status(500).json({
+      error: error?.message || 'Gagal memproses percakapan AI.',
+    });
+  }
+});
+
 // Setup Vite dev middleware or static serving
 async function startServer() {
   const httpServer = http.createServer(app);

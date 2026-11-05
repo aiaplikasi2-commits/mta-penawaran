@@ -67,6 +67,14 @@ service cloud.firestore {
       allow delete: if isValidId(slipId);
     }
 
+    // Purchase Orders (Upload PO)
+    match /purchase_orders/{poId} {
+      allow get: if isValidId(poId);
+      allow list: if true;
+      allow write: if isValidId(poId) && request.resource.data.size() <= 40;
+      allow delete: if isValidId(poId);
+    }
+
     // Test connection doc
     match /test/{docId} {
       allow read, write: if true;

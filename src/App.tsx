@@ -29,6 +29,7 @@ import { BastModule } from './components/bast/BastModule.tsx';
 import { InvoiceModule } from './components/invoice/InvoiceModule.tsx';
 import { DashboardBeranda } from './components/dashboard/DashboardBeranda.tsx';
 import { PoTrackerModal } from './components/dashboard/PoTrackerModal.tsx';
+import { UploadPoModule } from './components/po/UploadPoModule.tsx';
 import type { BastData } from './types/bast.ts';
 import type { InvoiceData } from './types/invoice.ts';
 import { getAllBasts } from './services/bastDb.ts';
@@ -401,6 +402,20 @@ export default function App() {
             onSaveSettings={handleSaveSettings}
             onToast={showToast}
           />
+        ) : appMode === 'upload-po' ? (
+          /* MODE: UPLOAD PO DENGAN AI OCR & DOKUMEN */
+          <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4">
+            <UploadPoModule
+              onNavigateToInvoice={(po) => {
+                handleModeChange('invoice');
+                showToast(`Membuka form Invoice untuk PO ${po.nomorPo}`);
+              }}
+              onNavigateToBast={(po) => {
+                handleModeChange('bast');
+                showToast(`Membuka form BAST untuk PO ${po.nomorPo}`);
+              }}
+            />
+          </div>
         ) : (
           /* MODE: SURAT PENAWARAN HARGA (SP MTA) */
           <div className="w-full">

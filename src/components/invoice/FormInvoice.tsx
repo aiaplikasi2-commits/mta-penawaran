@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Plus,
   Trash2,
@@ -9,8 +9,10 @@ import {
 } from 'lucide-react';
 import type { InvoiceData, InvoiceItem } from '../../types/invoice.ts';
 import type { CompanySettings, Customer, LetterData } from '../../types/index.ts';
+import type { PurchaseOrderData } from '../../types/po.ts';
 import { angkaKeTerbilang, generateNomorInvoiceBaru } from '../../services/invoiceDb.ts';
 import { formatNumberIndo } from '../../services/pdfGenerator.ts';
+import { getAllPurchaseOrders } from '../../services/poDb.ts';
 
 interface FormInvoiceProps {
   initialInvoice?: InvoiceData | null;
@@ -89,6 +91,34 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
     initialInvoice?.status || 'Belum Lunas'
   );
   const [isSaving, setIsSaving] = useState(false);
+  const [savedPos, setSavedPos] = useState<PurchaseOrderData[]>([]);
+
+  useEffect(() => {
+    getAllPurchaseOrders().then((list) => {
+      if (list && list.length > 0) {
+        setSavedPos(list);
+      }
+    });
+  }, []);
+
+  const handleSelectPo = (poNum: string) => {
+    setNomorPo(poNum);
+    const matchedPo = savedPos.find(
+      (p) => (p.nomorPo || '').toLowerCase() === poNum.trim().toLowerCase()
+    );
+    if (matchedPo) {
+      if (!companyName && matchedPo.buyerCompany) {
+        setCompanyName(matchedPo.buyerCompany);
+      }
+      if (!address && matchedPo.buyerAddress) {
+        setAddress(matchedPo.buyerAddress);
+      }
+      if (!recipientName && matchedPo.picName) {
+        setRecipientName(matchedPo.picName);
+      }
+      onToast(`Data PO ${matchedPo.nomorPo} dimuat`);
+    }
+  };
 
   // Calculations
   const subtotal = items.reduce((sum, it) => sum + (Number(it.total) || 0), 0);
@@ -353,16 +383,37 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
             </div>
 
             <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Nomor PO (Referensi Pesanan)
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block font-semibold text-slate-700">
+                  Nomor PO (Referensi Pesanan)
+                </label>
+                {savedPos.length > 0 && (
+                  <span className="text-[10px] text-blue-600 font-medium">
+                    {savedPos.length} PO di Cloud
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
+                list="saved-po-list-invoice"
                 value={nomorPo}
-                onChange={(e) => setNomorPo(e.target.value)}
-                placeholder="fsfsdfsfvsf"
-                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50/50 font-bold"
+                onChange={(e) => handleSelectPo(e.target.value)}
+                placeholder="Pilih atau ketik Nomor PO..."
+                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50/50 font-bold font-mono text-xs md:text-sm"
               />
+              <datalist id="saved-po-list-invoice">
+                {savedPos.map((p) => (
+                  <option
+                    key={p.id}
+                    value={p.nomorPo}
+                    label={`${p.buyerCompany} (${new Intl.NumberFormat('id-ID', {
+                      style: 'currency',
+                      currency: 'IDR',
+                      maximumFractionDigits: 0,
+                    }).format(p.grandTotal || 0)})`}
+                  />
+                ))}
+              </datalist>
             </div>
           </div>
         </div>

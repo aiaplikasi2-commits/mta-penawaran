@@ -136,6 +136,24 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
               <span>Slip Gaji Karyawan</span>
             </button>
 
+            {/* Upload PO (AI OCR) */}
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onNavigate('upload-po');
+              }}
+              className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-blue-900/60 transition text-left text-sky-200 hover:text-white group"
+            >
+              <div className="flex items-center gap-2.5">
+                <Package className="w-4 h-4 text-sky-300" />
+                <span>Upload PO (AI OCR)</span>
+              </div>
+              <span className="px-1.5 py-0.5 text-[9px] bg-yellow-400 text-blue-950 font-bold rounded">
+                BARU
+              </span>
+            </button>
+
             {/* Data Client */}
             <button
               type="button"

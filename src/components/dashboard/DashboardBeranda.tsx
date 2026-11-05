@@ -25,7 +25,7 @@ interface DashboardBerandaProps {
   basts: BastData[];
   invoices: InvoiceData[];
   customers: Customer[];
-  onSelectModule: (mode: 'penawaran' | 'bast' | 'invoice' | 'gaji') => void;
+  onSelectModule: (mode: 'penawaran' | 'bast' | 'invoice' | 'gaji' | 'upload-po') => void;
   onOpenPengaturan: () => void;
   onOpenClientData: () => void;
   onOpenPoTracker: () => void;
@@ -279,24 +279,29 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
             </div>
           </button>
 
-          {/* CARD 5: NOMOR PO */}
+          {/* CARD 5: NOMOR PO / UPLOAD PO */}
           <button
             type="button"
-            onClick={onOpenPoTracker}
+            onClick={() => onSelectModule('upload-po')}
             className="group relative bg-white hover:bg-amber-50/40 active:scale-[0.98] transition-all duration-150 rounded-2xl p-3 border border-slate-200 shadow-xs flex flex-col justify-between text-left h-[115px] sm:h-[125px] overflow-hidden"
           >
             <div className="flex items-start gap-2">
               <img
                 src="/icon-po.png"
-                alt="Nomor PO"
+                alt="Upload PO"
                 className="w-12 h-12 object-contain shrink-0 group-hover:scale-105 transition"
               />
               <div className="min-w-0 flex-1">
-                <h2 className="font-extrabold text-xs sm:text-[13px] text-slate-900 leading-tight">
-                  Nomor PO
-                </h2>
+                <div className="flex items-center gap-1">
+                  <h2 className="font-extrabold text-xs sm:text-[13px] text-slate-900 leading-tight">
+                    Upload PO
+                  </h2>
+                  <span className="px-1 py-0.2 text-[8px] bg-yellow-400 text-blue-950 font-black rounded">
+                    AI
+                  </span>
+                </div>
                 <p className="text-[10px] text-slate-500 leading-tight mt-0.5 line-clamp-2">
-                  Kelola nomor pesanan
+                  Ekstraksi AI &amp; kelola pesanan
                 </p>
               </div>
             </div>
@@ -429,6 +434,23 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
                 >
                   <Banknote className="w-4 h-4 text-green-400" />
                   <span>Slip Gaji Karyawan</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDrawerOpen(false);
+                    onSelectModule('upload-po');
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl hover:bg-blue-900/60 transition text-left"
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Package className="w-4 h-4 text-sky-300" />
+                    <span>Upload PO (AI OCR)</span>
+                  </div>
+                  <span className="px-1.5 py-0.5 text-[9px] bg-yellow-400 text-blue-950 font-bold rounded">
+                    BARU
+                  </span>
                 </button>
 
                 <button

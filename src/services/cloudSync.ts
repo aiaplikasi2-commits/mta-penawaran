@@ -16,6 +16,7 @@ import type { CompanySettings, Customer, LetterData } from '../types/index.ts';
 import type { BastData } from '../types/bast.ts';
 import type { InvoiceData } from '../types/invoice.ts';
 import type { Karyawan, SlipGaji } from '../types/salary.ts';
+import type { PurchaseOrderData } from '../types/po.ts';
 import { DEFAULT_SETTINGS, getCompanySettings, getAllLetters, getAllCustomers } from './db.ts';
 import { INITIAL_BAST, getAllBasts } from './bastDb.ts';
 import { SEED_INVOICE, getAllInvoices } from './invoiceDb.ts';
@@ -399,7 +400,58 @@ export async function deleteSlipOnline(id: string): Promise<void> {
 }
 
 // ----------------------------------------------------------------------
-// 7. SEAMLESS MIGRATION & SEEDING TO CLOUD
+// 7. PURCHASE ORDERS (UPLOAD PO / OCR)
+// ----------------------------------------------------------------------
+export function subscribePurchaseOrders(callback: (list: PurchaseOrderData[]) => void): Unsubscribe {
+  const poRef = collection(db, 'purchase_orders');
+  return onSnapshot(
+    poRef,
+    (snapshot) => {
+      const list: PurchaseOrderData[] = [];
+      snapshot.forEach((d) => {
+        list.push(d.data() as PurchaseOrderData);
+      });
+      // Sort newest first
+      list.sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime());
+      callback(list);
+    },
+    (error) => {
+      notifySyncState('GAGAL SINKRON', 'Gagal memuat data Purchase Order dari server');
+      handleFirestoreError(error, OperationType.LIST, 'purchase_orders');
+    }
+  );
+}
+
+export async function savePurchaseOrderOnline(po: PurchaseOrderData): Promise<void> {
+  notifySyncState('MENYINKRONKAN', `Menyimpan PO ${po.nomorPo} ke cloud database...`);
+  try {
+    const docRef = doc(db, 'purchase_orders', po.id);
+    const payload = {
+      ...po,
+      updatedAt: new Date().toISOString(),
+    };
+    await setDoc(docRef, payload, { merge: true });
+    notifySyncState('TERSINKRON', `PO ${po.nomorPo} tersimpan di cloud database`);
+  } catch (error) {
+    notifySyncState('GAGAL SINKRON', 'Gagal menyimpan PO');
+    handleFirestoreError(error, OperationType.WRITE, `purchase_orders/${po.id}`);
+  }
+}
+
+export async function deletePurchaseOrderOnline(id: string): Promise<void> {
+  notifySyncState('MENYINKRONKAN', 'Menghapus data Purchase Order...');
+  try {
+    const docRef = doc(db, 'purchase_orders', id);
+    await deleteDoc(docRef);
+    notifySyncState('TERSINKRON', 'Purchase Order berhasil dihapus dari cloud');
+  } catch (error) {
+    notifySyncState('GAGAL SINKRON', 'Gagal menghapus Purchase Order');
+    handleFirestoreError(error, OperationType.DELETE, `purchase_orders/${id}`);
+  }
+}
+
+// ----------------------------------------------------------------------
+// 8. SEAMLESS MIGRATION & SEEDING TO CLOUD
 // ----------------------------------------------------------------------
 export async function initializeAndMigrateToCloud(): Promise<void> {
   try {
@@ -512,6 +564,7 @@ export interface FullCloudBackup {
   invoices: InvoiceData[];
   karyawan: Karyawan[];
   slips: SlipGaji[];
+  purchaseOrders?: PurchaseOrderData[];
 }
 
 export async function exportEntireDatabase(): Promise<FullCloudBackup> {
@@ -523,6 +576,7 @@ export async function exportEntireDatabase(): Promise<FullCloudBackup> {
     invoicesSnap,
     karyawanSnap,
     slipsSnap,
+    posSnap,
   ] = await Promise.all([
     getDoc(doc(db, 'settings', 'company_settings')),
     getDocs(collection(db, 'letters')),
@@ -531,6 +585,7 @@ export async function exportEntireDatabase(): Promise<FullCloudBackup> {
     getDocs(collection(db, 'invoices')),
     getDocs(collection(db, 'karyawan')),
     getDocs(collection(db, 'slips')),
+    getDocs(collection(db, 'purchase_orders')),
   ]);
 
   const backup: FullCloudBackup = {
@@ -544,6 +599,7 @@ export async function exportEntireDatabase(): Promise<FullCloudBackup> {
     invoices: invoicesSnap.docs.map((d) => d.data() as InvoiceData),
     karyawan: karyawanSnap.docs.map((d) => d.data() as Karyawan),
     slips: slipsSnap.docs.map((d) => d.data() as SlipGaji),
+    purchaseOrders: posSnap.docs.map((d) => d.data() as PurchaseOrderData),
   };
 
   return backup;
@@ -583,6 +639,11 @@ export async function restoreEntireDatabase(backup: FullCloudBackup): Promise<vo
     if (Array.isArray(backup.slips)) {
       for (const s of backup.slips) {
         await saveSlipOnline(s);
+      }
+    }
+    if (Array.isArray(backup.purchaseOrders)) {
+      for (const p of backup.purchaseOrders) {
+        await savePurchaseOrderOnline(p);
       }
     }
     notifySyncState('TERSINKRON', 'Seluruh data berhasil dipulihkan dari backup');
