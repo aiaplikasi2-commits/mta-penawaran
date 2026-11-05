@@ -1,0 +1,32 @@
+{
+  "id": "/",
+  "name": "Adm MTA",
+  "short_name": "Adm MTA",
+  "description": "Aplikasi Administrasi & Operasional HVAC CV. MULIA TEKHNIK ABADI",
+  "theme_color": "#0b223d",
+  "background_color": "#0b223d",
+  "display": "standalone",
+  "orientation": "portrait",
+  "start_url": "/",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/pwa-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/pwa-maskable-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

@@ -563,7 +563,7 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
   };
 
   return (
-    <div className="pb-36 pt-2 max-w-4xl mx-auto px-3 sm:px-4">
+    <div className="pb-44 pt-2 max-w-4xl mx-auto px-3 sm:px-4">
       {/* View Switcher Bar & Auto-save Status */}
       <div className="sticky top-15 z-30 bg-slate-100/95 backdrop-blur-xs py-2 flex items-center justify-between border-b border-slate-200 mb-4 gap-2 flex-wrap">
         <div className="flex bg-slate-200/90 p-1 rounded-xl shadow-inner w-full sm:w-auto">
@@ -1508,13 +1508,8 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
         </div>
       )}
 
-      {/* FIXED BOTTOM ACTION BAR
-          1. SIMPAN SURAT
-          2. DOWNLOAD PDF
-          3. BAGIKAN PDF (Opens WhatsApp / Email Share Modal)
-          4. PREVIEW PDF
-      */}
-      <div className="fixed bottom-15 left-0 right-0 z-30 bg-[#0b223d]/95 backdrop-blur-md border-t border-blue-900/80 px-3 py-2 shadow-[0_-8px_20px_rgba(0,0,0,0.15)]">
+      {/* FIXED BOTTOM ACTION BAR */}
+      <div className="fixed bottom-[58px] sm:bottom-[62px] left-0 right-0 z-30 bg-[#0b223d]/95 backdrop-blur-md border-t border-blue-900/80 px-3 py-2 shadow-[0_-8px_20px_rgba(0,0,0,0.2)]">
         <div className="max-w-4xl mx-auto grid grid-cols-4 gap-2">
           {/* 1. SIMPAN SURAT */}
           <button

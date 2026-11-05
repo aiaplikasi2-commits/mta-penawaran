@@ -68,14 +68,14 @@ export const Header: React.FC<HeaderProps> = ({ appMode, onModeChange, onOpenSid
           <button
             type="button"
             onClick={() => onModeChange('dashboard')}
-            className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-800/90 hover:bg-blue-700 active:scale-95 text-white text-[11px] font-bold transition shadow-xs border border-blue-600/50"
+            className="hidden md:flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-800/90 hover:bg-blue-700 active:scale-95 text-white text-[11px] font-bold transition shadow-xs border border-blue-600/50"
             title="Kembali ke Beranda"
           >
             <span>← Beranda</span>
           </button>
 
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-blue-700 to-sky-500 p-0.5 flex items-center justify-center shadow-inner shrink-0">
-            <span className="font-extrabold text-[10px] tracking-wider text-white">MTA</span>
+          <div className="w-7 h-7 rounded-lg overflow-hidden bg-blue-900 border border-blue-500/40 p-0.5 flex items-center justify-center shadow-xs shrink-0">
+            <img src="/favicon.png" alt="Adm MTA" className="w-full h-full object-cover rounded-md" />
           </div>
 
           <div>
@@ -150,7 +150,7 @@ export const Header: React.FC<HeaderProps> = ({ appMode, onModeChange, onOpenSid
             {/* Modal Body */}
             <div className="py-4 space-y-3.5 text-xs text-center">
               <p className="text-slate-600 leading-relaxed text-[12px]">
-                Dukung terus pemeliharaan dan pengembangan aplikasi <strong>SP MTA & SLIP GAJI</strong> dengan mentraktir secangkir kopi via GoPay:
+                Dukung terus pemeliharaan dan pengembangan aplikasi <strong>Adm MTA</strong> dengan mentraktir secangkir kopi via GoPay:
               </p>
 
               {/* GoPay Box */}

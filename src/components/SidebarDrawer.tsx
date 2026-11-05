@@ -47,14 +47,16 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between pb-3 border-b border-blue-900">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center font-black text-xs text-white">
-                MTA
+              <div className="w-9 h-9 rounded-xl overflow-hidden bg-blue-900 border border-blue-500/40 p-0.5 flex items-center justify-center shadow-xs shrink-0">
+                <img src="/pwa-192x192.png" alt="Adm MTA" className="w-full h-full object-cover rounded-lg" />
               </div>
               <div className="min-w-0">
-                <h3 className="font-bold text-xs truncate">
-                  {settings.companyName || 'CV MULIA TEKHNIK ABADI'}
+                <h3 className="font-black text-xs tracking-tight text-white truncate">
+                  Adm MTA
                 </h3>
-                <p className="text-[10px] text-sky-300">Menu Utama</p>
+                <p className="text-[10px] text-sky-300 truncate">
+                  {settings.companyName || 'CV. MULIA TEKHNIK ABADI'}
+                </p>
               </div>
             </div>
             <button
@@ -189,7 +191,7 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
             <span>Dukung Pengembang (Kopi)</span>
           </button>
           <p className="text-[10px] text-slate-400 text-center mt-2">
-            CV Mulia Tekhnik Abadi v2.5
+            Adm MTA - CV. Mulia Tekhnik Abadi
           </p>
         </div>
       </div>

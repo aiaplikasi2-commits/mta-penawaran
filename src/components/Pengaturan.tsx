@@ -206,7 +206,7 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                 <span>Pengaturan Tunggal Perusahaan MTA</span>
               </h2>
               <p className="text-xs text-slate-500 mt-0.5">
-                Satu sumber data terintegrasi untuk Surat Penawaran (SP MTA) &amp; Slip Gaji Karyawan
+                Satu sumber data terintegrasi aplikasi Adm MTA (Penawaran, BAST, Invoice &amp; Slip Gaji)
               </p>
             </div>
 

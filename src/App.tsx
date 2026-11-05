@@ -41,6 +41,7 @@ import {
   subscribeBasts,
   subscribeInvoices,
 } from './services/cloudSync.ts';
+import { BottomNav } from './components/BottomNav.tsx';
 import { CheckCircle2 } from 'lucide-react';
 
 export type NavTab = 'tambah' | 'rekap' | 'pelanggan' | 'pengaturan';
@@ -63,11 +64,66 @@ export default function App() {
   const [toast, setToast] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Switch mode handler
-  const handleModeChange = (mode: AppMode) => {
+  // Switch mode handler with history push for native Android Back support
+  const handleModeChange = useCallback((mode: AppMode, nextTab?: NavTab) => {
+    if (mode !== appMode) {
+      window.history.pushState({ mode, tab: nextTab || activeTab }, '', window.location.pathname);
+    }
     setAppMode(mode);
+    if (nextTab) setActiveTab(nextTab);
     localStorage.setItem('MTA_APP_MODE', mode);
-  };
+  }, [appMode, activeTab]);
+
+  // Thumb-accessible Back handler for Android
+  const handleBackNavigation = useCallback(() => {
+    if (previewModalLetter) {
+      setPreviewModalLetter(null);
+      return;
+    }
+    if (shareModalLetter) {
+      setShareModalLetter(null);
+      return;
+    }
+    if (isPoModalOpen) {
+      setIsPoModalOpen(false);
+      return;
+    }
+    if (isSidebarOpen) {
+      setIsSidebarOpen(false);
+      return;
+    }
+
+    if (appMode === 'penawaran') {
+      if (activeTab !== 'rekap') {
+        setActiveTab('rekap');
+        return;
+      }
+    }
+    // Return to dashboard
+    handleModeChange('dashboard');
+  }, [
+    previewModalLetter,
+    shareModalLetter,
+    isPoModalOpen,
+    isSidebarOpen,
+    appMode,
+    activeTab,
+    handleModeChange,
+  ]);
+
+  // Support native Android hardware/gesture back navigation
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      if (e.state && e.state.mode) {
+        setAppMode(e.state.mode);
+        if (e.state.tab) setActiveTab(e.state.tab);
+      } else {
+        setAppMode('dashboard');
+      }
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
 
   // Toast helper
   const showToast = useCallback((msg: string) => {
@@ -269,10 +325,10 @@ export default function App() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4">
-        <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-700 to-sky-500 p-1 flex items-center justify-center animate-pulse shadow-lg">
-          <span className="font-extrabold text-base tracking-wider text-white">MTA</span>
+        <div className="w-14 h-14 rounded-2xl overflow-hidden p-0.5 bg-blue-900 shadow-xl border border-blue-500/30 flex items-center justify-center animate-pulse">
+          <img src="/pwa-192x192.png" alt="Adm MTA" className="w-full h-full object-cover rounded-xl" />
         </div>
-        <p className="mt-3 font-semibold text-xs text-slate-600">Memuat SP MTA & Gaji...</p>
+        <p className="mt-3 font-bold text-xs text-slate-700 tracking-wide">Memuat Adm MTA...</p>
       </div>
     );
   }
@@ -290,7 +346,7 @@ export default function App() {
       )}
 
       {/* 2. MAIN ACTIVE VIEW CONTENT */}
-      <main className="flex-1 w-full">
+      <main className={`flex-1 w-full ${appMode !== 'dashboard' ? 'pb-24 sm:pb-28' : ''}`}>
         {/* MODE: DASHBOARD / BERANDA UTAMA (MOCKUP HVAC MTA) */}
         {appMode === 'dashboard' ? (
           <DashboardBeranda
@@ -451,6 +507,15 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* 2B. ANDROID MOBILE THUMB NAVIGATION BAR */}
+      {appMode !== 'dashboard' && (
+        <BottomNav
+          onGoHome={() => handleModeChange('dashboard')}
+          onBack={handleBackNavigation}
+          onOpenSidebar={() => setIsSidebarOpen(true)}
+        />
+      )}
 
       {/* 3. SIDEBAR DRAWER (GLOBAL) */}
       <SidebarDrawer

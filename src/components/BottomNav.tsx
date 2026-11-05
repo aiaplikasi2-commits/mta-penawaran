@@ -1,167 +1,66 @@
 import React from 'react';
-import {
-  Home,
-  Users,
-  Folder,
-  BarChart2,
-} from 'lucide-react';
-import type { AppMode } from './Header.tsx';
-
-export type NavTab = 'tambah' | 'rekap' | 'pelanggan' | 'pengaturan';
+import { Home, ArrowLeft, Menu, Compass } from 'lucide-react';
 
 interface BottomNavProps {
-  appMode: AppMode;
-  activeTab: NavTab;
-  onTabChange: (tab: NavTab) => void;
-  onModeChange: (mode: AppMode) => void;
+  onGoHome: () => void;
+  onBack?: () => void;
+  onOpenSidebar?: () => void;
+  currentModeLabel?: string;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
-  appMode,
-  activeTab,
-  onTabChange,
-  onModeChange,
+  onGoHome,
+  onBack,
+  onOpenSidebar,
+  currentModeLabel = 'Menu',
 }) => {
-  // Determine which bottom tab is active
-  // 1. Beranda: appMode === 'dashboard'
-  // 2. Data Client: (appMode === 'penawaran' && activeTab === 'pelanggan')
-  // 3. Dokumen: (appMode === 'penawaran' && (activeTab === 'rekap' || activeTab === 'tambah' || activeTab === 'pengaturan')) || appMode === 'bast' || appMode === 'invoice'
-  // 4. Laporan: appMode === 'gaji'
-  const isBerandaActive = appMode === 'dashboard';
-  const isClientActive = appMode === 'penawaran' && activeTab === 'pelanggan';
-  const isDokumenActive =
-    (appMode === 'penawaran' && activeTab !== 'pelanggan') ||
-    appMode === 'bast' ||
-    appMode === 'invoice';
-  const isLaporanActive = appMode === 'gaji';
-
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/80 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] pb-[env(safe-area-inset-bottom)] w-full overflow-x-hidden">
-      <div className="max-w-md mx-auto flex items-center justify-around h-15 px-2">
-        {/* Tab 1: Beranda */}
+    <div className="fixed bottom-0 left-0 right-0 z-40 pointer-events-none pb-[max(0.5rem,env(safe-area-inset-bottom))] px-3 pt-1">
+      <div className="max-w-md mx-auto pointer-events-auto bg-[#0b223d]/95 backdrop-blur-md border border-blue-700/60 shadow-[0_-4px_20px_rgba(0,0,0,0.35)] rounded-2xl px-3 py-1.5 flex items-center justify-between text-white transition-all duration-200">
+        
+        {/* 1. TOMBOL KEMBALI (BACK) */}
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex flex-col items-center justify-center min-w-[64px] py-1 px-2.5 rounded-xl text-sky-200 hover:text-white active:bg-blue-800/60 active:scale-95 transition"
+            title="Kembali ke halaman sebelumnya"
+          >
+            <ArrowLeft className="w-5 h-5 stroke-[2.2]" />
+            <span className="text-[10px] font-bold tracking-tight mt-0.5">Kembali</span>
+          </button>
+        ) : (
+          <div className="min-w-[64px]" />
+        )}
+
+        {/* 2. TOMBOL UTAMA: KEMBALI KE BERANDA (HOME) */}
         <button
           type="button"
-          onClick={() => onModeChange('dashboard')}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition-all relative select-none ${
-            isBerandaActive ? 'text-blue-700' : 'text-slate-500 hover:text-slate-800'
-          }`}
+          onClick={onGoHome}
+          className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-blue-600 via-blue-500 to-sky-500 text-white shadow-lg shadow-blue-900/50 active:scale-95 transition-all border border-sky-400/30 group"
+          title="Kembali ke Beranda Utama"
         >
-          <div className="p-0.5">
-            <Home
-              className={`w-5 h-5 transition-transform ${
-                isBerandaActive ? 'stroke-[2.5] scale-110 text-blue-700' : 'stroke-[1.8]'
-              }`}
-            />
+          <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+            <Home className="w-4 h-4 text-white stroke-[2.5]" />
           </div>
-          <span
-            className={`text-[11px] tracking-tight mt-0.5 leading-none ${
-              isBerandaActive ? 'font-bold text-blue-700' : 'font-medium text-slate-600'
-            }`}
-          >
-            Beranda
-          </span>
-          {isBerandaActive && (
-            <span className="w-8 h-1 bg-blue-700 rounded-full mt-1 animate-in fade-in zoom-in-75 duration-200" />
-          )}
+          <span className="text-xs font-black tracking-wide uppercase">Beranda</span>
         </button>
 
-        {/* Tab 2: Data Client */}
-        <button
-          type="button"
-          onClick={() => {
-            onModeChange('penawaran');
-            onTabChange('pelanggan');
-          }}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition-all relative select-none ${
-            isClientActive ? 'text-blue-700' : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <div className="p-0.5">
-            <Users
-              className={`w-5 h-5 transition-transform ${
-                isClientActive ? 'stroke-[2.5] scale-110 text-blue-700' : 'stroke-[1.8]'
-              }`}
-            />
-          </div>
-          <span
-            className={`text-[11px] tracking-tight mt-0.5 leading-none ${
-              isClientActive ? 'font-bold text-blue-700' : 'font-medium text-slate-600'
-            }`}
+        {/* 3. TOMBOL MENU SIDEBAR */}
+        {onOpenSidebar ? (
+          <button
+            type="button"
+            onClick={onOpenSidebar}
+            className="flex flex-col items-center justify-center min-w-[64px] py-1 px-2.5 rounded-xl text-sky-200 hover:text-white active:bg-blue-800/60 active:scale-95 transition"
+            title="Buka Menu Aplikasi"
           >
-            Data Client
-          </span>
-          {isClientActive && (
-            <span className="w-8 h-1 bg-blue-700 rounded-full mt-1 animate-in fade-in zoom-in-75 duration-200" />
-          )}
-        </button>
-
-        {/* Tab 3: Dokumen */}
-        <button
-          type="button"
-          onClick={() => {
-            if (appMode === 'dashboard') {
-              onModeChange('penawaran');
-              onTabChange('rekap');
-            } else if (appMode === 'penawaran') {
-              // toggle between rekap and tambah if already in penawaran
-              onTabChange(activeTab === 'tambah' ? 'rekap' : 'tambah');
-            } else {
-              // if in bast or invoice, keep module or switch to penawaran rekap
-              onTabChange('rekap');
-            }
-          }}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition-all relative select-none ${
-            isDokumenActive ? 'text-blue-700' : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <div className="p-0.5">
-            <Folder
-              className={`w-5 h-5 transition-transform ${
-                isDokumenActive ? 'stroke-[2.5] scale-110 text-blue-700' : 'stroke-[1.8]'
-              }`}
-            />
-          </div>
-          <span
-            className={`text-[11px] tracking-tight mt-0.5 leading-none ${
-              isDokumenActive ? 'font-bold text-blue-700' : 'font-medium text-slate-600'
-            }`}
-          >
-            Dokumen
-          </span>
-          {isDokumenActive && (
-            <span className="w-8 h-1 bg-blue-700 rounded-full mt-1 animate-in fade-in zoom-in-75 duration-200" />
-          )}
-        </button>
-
-        {/* Tab 4: Laporan */}
-        <button
-          type="button"
-          onClick={() => {
-            onModeChange('gaji');
-          }}
-          className={`flex flex-col items-center justify-center flex-1 py-1 transition-all relative select-none ${
-            isLaporanActive ? 'text-blue-700' : 'text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <div className="p-0.5">
-            <BarChart2
-              className={`w-5 h-5 transition-transform ${
-                isLaporanActive ? 'stroke-[2.5] scale-110 text-blue-700' : 'stroke-[1.8]'
-              }`}
-            />
-          </div>
-          <span
-            className={`text-[11px] tracking-tight mt-0.5 leading-none ${
-              isLaporanActive ? 'font-bold text-blue-700' : 'font-medium text-slate-600'
-            }`}
-          >
-            Laporan
-          </span>
-          {isLaporanActive && (
-            <span className="w-8 h-1 bg-blue-700 rounded-full mt-1 animate-in fade-in zoom-in-75 duration-200" />
-          )}
-        </button>
+            <Menu className="w-5 h-5 stroke-[2.2]" />
+            <span className="text-[10px] font-bold tracking-tight mt-0.5">Menu</span>
+          </button>
+        ) : (
+          <div className="min-w-[64px]" />
+        )}
       </div>
-    </nav>
+    </div>
   );
 };

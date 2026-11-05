@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import {
   Bell,
-  Volume2,
-  ShieldCheck,
   ChevronRight,
   Menu,
   X,
@@ -162,46 +160,8 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
         </div>
       </div>
 
-      {/* 3. WELCOME & STATUS PILLS (SIDE-BY-SIDE) */}
-      <div className="px-3 pt-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          {/* Left Pill: Selamat Datang */}
-          <div className="bg-white rounded-2xl p-2.5 shadow-xs border border-slate-200/80 flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-sky-500 text-white flex items-center justify-center shrink-0 shadow-xs">
-              <Volume2 className="w-5 h-5" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="font-bold text-xs text-slate-900 leading-tight">
-                Selamat Datang
-              </h3>
-              <p className="text-[10px] text-slate-500 truncate leading-tight mt-0.5">
-                di Aplikasi Administrasi
-              </p>
-              <p className="text-[10px] font-bold text-blue-900 truncate leading-tight">
-                CV MULIA TEKHNIK ABADI
-              </p>
-            </div>
-          </div>
-
-          {/* Right Pill: Melayani Sepenuh Hati */}
-          <div className="bg-white rounded-2xl p-2.5 shadow-xs border border-slate-200/80 flex items-center gap-2.5">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 text-white flex items-center justify-center shrink-0 shadow-xs">
-              <ShieldCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="font-bold text-xs text-slate-900 leading-tight">
-                Melayani dengan
-              </h3>
-              <p className="text-[10px] text-slate-600 font-semibold leading-tight mt-0.5">
-                Sepenuh Hati
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-
       {/* 4. THE 6 MAIN NAVIGATION CARDS (2 COLUMNS X 3 ROWS GRID) */}
-      <div className="px-3 pt-3.5">
+      <div className="px-3 pt-3">
         <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
           {/* CARD 1: SURAT PENAWARAN */}
           <button
