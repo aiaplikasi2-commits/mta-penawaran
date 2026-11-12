@@ -104,7 +104,7 @@ export const SalaryModule: React.FC<SalaryModuleProps> = ({
     signatoryName: companySettings.signatoryName || 'Muhamad Ridho',
     logoImage: companySettings.logoImage || '/default-logo.png',
     kopImage: companySettings.kopImage || '/default-kop.png',
-    signatureImage: companySettings.signatureImage || '/default-ttd-stempel.png',
+    signatureImage: companySettings.signatureImage ?? '',
     stampImage: companySettings.stampImage || '',
     tarifLemburPerJam: companySettings.tarifLemburPerJam ?? 12000,
   };

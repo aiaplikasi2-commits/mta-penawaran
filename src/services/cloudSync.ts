@@ -81,7 +81,11 @@ export function subscribeSettings(callback: (settings: CompanySettings) => void)
     (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.data() as CompanySettings;
-        callback({ ...DEFAULT_SETTINGS, ...data });
+        callback({
+          ...DEFAULT_SETTINGS,
+          ...data,
+          signatureImage: data.signatureImage !== undefined ? data.signatureImage : '',
+        });
       } else {
         callback(DEFAULT_SETTINGS);
       }

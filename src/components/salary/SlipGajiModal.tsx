@@ -409,14 +409,18 @@ _Dokumen resmi CV Mulia Tekhnik Abadi._`;
               <div className="p-2 sm:p-4 border-r border-black flex flex-col justify-between min-h-[120px] sm:min-h-[145px]">
                 <p className="font-medium">Di Setuju oleh,</p>
                 <div className="relative my-1 h-12 sm:h-16 flex items-center">
-                  <img
-                    src={settings.signatureImage || '/default-ttd-stempel.png'}
-                    alt="TTD & Stempel"
-                    className="max-h-12 sm:max-h-16 max-w-[120px] sm:max-w-[150px] object-contain"
-                    onError={(e) => {
-                      (e.target as HTMLElement).style.display = 'none';
-                    }}
-                  />
+                  {settings.signatureImage ? (
+                    <img
+                      src={settings.signatureImage}
+                      alt="TTD & Stempel"
+                      className="max-h-12 sm:max-h-16 max-w-[120px] sm:max-w-[150px] object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLElement).style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <div className="h-12 sm:h-16" />
+                  )}
                 </div>
                 <div className="pt-1">
                   <p className="font-bold text-black text-[11px] sm:text-sm truncate">

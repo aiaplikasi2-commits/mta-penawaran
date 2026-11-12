@@ -186,6 +186,11 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
           bast={previewBast}
           settings={settings}
           onDelete={handleDeleteBast}
+          onEdit={(b) => {
+            setPreviewBast(null);
+            handleEdit(b);
+          }}
+          onUpdateBast={handleSaveBast}
           onToast={onToast}
         />
       )}

@@ -97,6 +97,9 @@ export const FormBast: React.FC<FormBastProps> = ({
   const [status, setStatus] = useState<'Draft' | 'Selesai'>(initialBast?.status || 'Selesai');
   const [isSaving, setIsSaving] = useState(false);
   const [savedPos, setSavedPos] = useState<any[]>([]);
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+
+  const BAST_DRAFT_KEY = 'MTA_BAST_DRAFT';
 
   useEffect(() => {
     getAllPurchaseOrders().then((list) => {
@@ -105,6 +108,108 @@ export const FormBast: React.FC<FormBastProps> = ({
       }
     });
   }, []);
+
+  // Auto-restore draft if creating a new BAST and draft exists
+  useEffect(() => {
+    if (!initialBast) {
+      try {
+        const raw = localStorage.getItem(BAST_DRAFT_KEY);
+        if (raw) {
+          const draft = JSON.parse(raw);
+          if (
+            draft &&
+            (draft.nomorPo ||
+              draft.pihakPertamaPerusahaan ||
+              draft.pihakPertamaNama ||
+              draft.items?.some((i: any) => i.name))
+          ) {
+            if (draft.nomorBast) setNomorBast(draft.nomorBast);
+            if (draft.nomorPo) setNomorPo(draft.nomorPo);
+            if (draft.tanggalBast) {
+              setTanggalBast(draft.tanggalBast);
+              setHariTerbilang(draft.hariTerbilang || generateHariTerbilang(draft.tanggalBast));
+            }
+            if (draft.pihakPertamaNama) setPihakPertamaNama(draft.pihakPertamaNama);
+            if (draft.pihakPertamaJabatan) setPihakPertamaJabatan(draft.pihakPertamaJabatan);
+            if (draft.pihakPertamaPerusahaan) setPihakPertamaPerusahaan(draft.pihakPertamaPerusahaan);
+            if (draft.pihakPertamaAlamat) setPihakPertamaAlamat(draft.pihakPertamaAlamat);
+            if (draft.items && draft.items.length > 0) setItems(draft.items);
+            if (draft.tanggalMulai) setTanggalMulai(draft.tanggalMulai);
+            if (draft.tanggalSelesai) setTanggalSelesai(draft.tanggalSelesai);
+            if (draft.kota) setKota(draft.kota);
+            setHasRestoredDraft(true);
+            onToast('Draft BAST sebelumnya dipulihkan');
+          }
+        }
+      } catch (e) {
+        console.warn('Error reading BAST draft:', e);
+      }
+    }
+  }, [initialBast]);
+
+  // Debounced auto-save current typing state to draft
+  useEffect(() => {
+    const hasData =
+      nomorPo.trim() ||
+      pihakPertamaPerusahaan.trim() ||
+      pihakPertamaNama.trim() ||
+      items.some((it) => it.name.trim());
+
+    if (hasData) {
+      const timer = setTimeout(() => {
+        try {
+          const current = getCurrentBastObject();
+          localStorage.setItem(BAST_DRAFT_KEY, JSON.stringify(current));
+        } catch (e) {
+          console.warn('Draft save error', e);
+        }
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, [
+    nomorBast,
+    nomorPo,
+    tanggalBast,
+    hariTerbilang,
+    pihakPertamaNama,
+    pihakPertamaJabatan,
+    pihakPertamaPerusahaan,
+    pihakPertamaAlamat,
+    items,
+    tanggalMulai,
+    tanggalSelesai,
+    kota,
+  ]);
+
+  // Handle Back with automatic draft save
+  const handleBackWithDraft = () => {
+    const hasData =
+      nomorPo.trim() ||
+      pihakPertamaPerusahaan.trim() ||
+      pihakPertamaNama.trim() ||
+      items.some((it) => it.name.trim());
+    if (hasData) {
+      try {
+        localStorage.setItem(BAST_DRAFT_KEY, JSON.stringify(getCurrentBastObject()));
+        onToast('Tersimpan sebagai draft BAST');
+      } catch (e) {
+        console.warn('Draft save on back error', e);
+      }
+    }
+    onBack();
+  };
+
+  const handleClearDraft = () => {
+    localStorage.removeItem(BAST_DRAFT_KEY);
+    setHasRestoredDraft(false);
+    setNomorPo('');
+    setPihakPertamaNama('');
+    setPihakPertamaJabatan('');
+    setPihakPertamaPerusahaan('');
+    setPihakPertamaAlamat('');
+    setItems([{ id: `item-${Date.now()}-1`, name: '', keterangan: 'Sesuai' }]);
+    onToast('Draft BAST direset');
+  };
 
   // Automatically update hariTerbilang when tanggalBast changes
   const handleDateChange = (val: string) => {
@@ -282,6 +387,7 @@ export const FormBast: React.FC<FormBastProps> = ({
       setIsSaving(true);
       const toSave = getCurrentBastObject();
       await onSave(toSave);
+      localStorage.removeItem(BAST_DRAFT_KEY);
       onToast(`Dokumen ${toSave.nomorBast} berhasil disimpan!`);
     } catch {
       onToast('Gagal menyimpan dokumen BAST');
@@ -297,15 +403,29 @@ export const FormBast: React.FC<FormBastProps> = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={onBack}
+            onClick={handleBackWithDraft}
             className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition"
-            title="Kembali"
+            title="Kembali (otomatis jadi draft)"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h2 className="text-base font-bold text-[#0b223d]">
             {initialBast ? `Edit BAST: ${initialBast.nomorBast}` : 'Buat BAST Baru'}
           </h2>
+          {hasRestoredDraft && !initialBast && (
+            <div className="flex items-center gap-1.5 ml-2">
+              <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-md border border-amber-300">
+                Draft Aktif
+              </span>
+              <button
+                type="button"
+                onClick={handleClearDraft}
+                className="text-[10px] text-slate-500 hover:text-rose-600 underline font-semibold"
+              >
+                Reset Baru
+              </button>
+            </div>
+          )}
         </div>
 
         <button

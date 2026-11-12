@@ -92,6 +92,9 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
   );
   const [isSaving, setIsSaving] = useState(false);
   const [savedPos, setSavedPos] = useState<PurchaseOrderData[]>([]);
+  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
+
+  const INVOICE_DRAFT_KEY = 'MTA_INVOICE_DRAFT';
 
   useEffect(() => {
     getAllPurchaseOrders().then((list) => {
@@ -100,6 +103,116 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
       }
     });
   }, []);
+
+  // Auto-restore draft if creating new invoice
+  useEffect(() => {
+    if (!initialInvoice) {
+      try {
+        const raw = localStorage.getItem(INVOICE_DRAFT_KEY);
+        if (raw) {
+          const draft = JSON.parse(raw);
+          if (
+            draft &&
+            (draft.companyName ||
+              draft.nomorPo ||
+              draft.recipientName ||
+              draft.items?.some((i: any) => i.description))
+          ) {
+            if (draft.invoiceNumber) setInvoiceNumber(draft.invoiceNumber);
+            if (draft.invoiceDate) setInvoiceDate(draft.invoiceDate);
+            if (draft.nomorPo) setNomorPo(draft.nomorPo);
+            if (draft.companyName) setCompanyName(draft.companyName);
+            if (draft.recipientName) setRecipientName(draft.recipientName);
+            if (draft.address) setAddress(draft.address);
+            if (draft.items && draft.items.length > 0) setItems(draft.items);
+            if (draft.tradeInActive !== undefined) setTradeInActive(draft.tradeInActive);
+            if (draft.tradeInName) setTradeInName(draft.tradeInName);
+            if (draft.tradeInValue !== undefined) setTradeInValue(draft.tradeInValue);
+            if (draft.bankName) setBankName(draft.bankName);
+            if (draft.bankAccountName) setBankAccountName(draft.bankAccountName);
+            if (draft.bankAccountNumber) setBankAccountNumber(draft.bankAccountNumber);
+            setHasRestoredDraft(true);
+            onToast('Draft Invoice sebelumnya dipulihkan');
+          }
+        }
+      } catch (e) {
+        console.warn('Error restoring invoice draft', e);
+      }
+    }
+  }, [initialInvoice]);
+
+  // Debounced auto-save typing to draft
+  useEffect(() => {
+    const hasData =
+      companyName.trim() ||
+      nomorPo.trim() ||
+      recipientName.trim() ||
+      items.some((it) => it.description?.trim());
+
+    if (hasData) {
+      const timer = setTimeout(() => {
+        try {
+          const current = getCurrentInvoiceObject();
+          localStorage.setItem(INVOICE_DRAFT_KEY, JSON.stringify(current));
+        } catch (e) {
+          console.warn('Draft invoice save error', e);
+        }
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, [
+    invoiceNumber,
+    invoiceDate,
+    nomorPo,
+    companyName,
+    recipientName,
+    address,
+    items,
+    tradeInActive,
+    tradeInName,
+    tradeInValue,
+    bankName,
+    bankAccountName,
+    bankAccountNumber,
+  ]);
+
+  const handleBackWithDraft = () => {
+    const hasData =
+      companyName.trim() ||
+      nomorPo.trim() ||
+      recipientName.trim() ||
+      items.some((it) => it.description?.trim());
+    if (hasData) {
+      try {
+        localStorage.setItem(INVOICE_DRAFT_KEY, JSON.stringify(getCurrentInvoiceObject()));
+        onToast('Tersimpan sebagai draft Invoice');
+      } catch (e) {
+        console.warn('Error saving invoice draft on back', e);
+      }
+    }
+    onBack();
+  };
+
+  const handleClearDraft = () => {
+    localStorage.removeItem(INVOICE_DRAFT_KEY);
+    setHasRestoredDraft(false);
+    setNomorPo('');
+    setCompanyName('');
+    setRecipientName('');
+    setAddress('');
+    setItems([
+      {
+        id: `item-${Date.now()}-1`,
+        description: '',
+        qty: 1,
+        satuan: 'unit',
+        price: 0,
+        total: 0,
+      },
+    ]);
+    setTradeInActive(false);
+    onToast('Draft Invoice direset');
+  };
 
   const handleSelectPo = (poNum: string) => {
     setNomorPo(poNum);
@@ -266,6 +379,7 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
       setIsSaving(true);
       const toSave = getCurrentInvoiceObject();
       await onSave(toSave);
+      localStorage.removeItem(INVOICE_DRAFT_KEY);
       onToast(`Invoice ${toSave.invoiceNumber} disimpan`);
     } catch {
       onToast('Gagal menyimpan invoice');
@@ -281,15 +395,29 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={onBack}
+            onClick={handleBackWithDraft}
             className="p-1.5 rounded-lg text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition"
-            title="Kembali"
+            title="Kembali (otomatis jadi draft)"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h2 className="text-base font-bold text-[#0b223d]">
             {initialInvoice ? `Edit: ${initialInvoice.invoiceNumber}` : 'Buat Invoice Baru'}
           </h2>
+          {hasRestoredDraft && !initialInvoice && (
+            <div className="flex items-center gap-1.5 ml-2">
+              <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-md border border-amber-300">
+                Draft Aktif
+              </span>
+              <button
+                type="button"
+                onClick={handleClearDraft}
+                className="text-[10px] text-slate-500 hover:text-rose-600 underline font-semibold"
+              >
+                Reset Baru
+              </button>
+            </div>
+          )}
         </div>
 
         <button

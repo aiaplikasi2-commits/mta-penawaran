@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Download, Share2, Printer } from 'lucide-react';
+import { X, Download, Share2, Printer, Receipt } from 'lucide-react';
 import type { CompanySettings, LetterData } from '../types/index.ts';
 import { LetterPreview } from './LetterPreview.tsx';
 import { downloadLetterPDF } from '../services/pdfGenerator.ts';
@@ -11,6 +11,7 @@ interface PDFPreviewModalProps {
   settings: CompanySettings;
   onToast: (msg: string) => void;
   onShareClick?: (letter: LetterData) => void;
+  onConvertToInvoice?: (letter: LetterData) => void;
 }
 
 export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
@@ -20,6 +21,7 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
   settings,
   onToast,
   onShareClick,
+  onConvertToInvoice,
 }) => {
   if (!isOpen) return null;
 
@@ -72,6 +74,19 @@ export const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
             <Share2 className="w-3.5 h-3.5" />
             <span className="hidden sm:inline">Bagikan</span>
           </button>
+          {onConvertToInvoice && (
+            <button
+              onClick={() => {
+                onConvertToInvoice(letter);
+                onClose();
+              }}
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold shadow-xs transition"
+              title="Buat invoice dari penawaran ini"
+            >
+              <Receipt className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Ke Invoice</span>
+            </button>
+          )}
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 transition ml-1"

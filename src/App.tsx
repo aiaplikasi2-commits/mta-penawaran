@@ -31,9 +31,13 @@ import { DashboardBeranda } from './components/dashboard/DashboardBeranda.tsx';
 import { PoTrackerModal } from './components/dashboard/PoTrackerModal.tsx';
 import { UploadPoModule } from './components/po/UploadPoModule.tsx';
 import type { BastData } from './types/bast.ts';
-import type { InvoiceData } from './types/invoice.ts';
+import type { InvoiceData, InvoiceItem } from './types/invoice.ts';
 import { getAllBasts } from './services/bastDb.ts';
-import { getAllInvoices } from './services/invoiceDb.ts';
+import {
+  getAllInvoices,
+  generateNomorInvoiceBaru,
+  angkaKeTerbilang,
+} from './services/invoiceDb.ts';
 import {
   initializeAndMigrateToCloud,
   subscribeSettings,
@@ -61,6 +65,7 @@ export default function App() {
   const [activeLetterForEdit, setActiveLetterForEdit] = useState<LetterData | null>(null);
   const [previewModalLetter, setPreviewModalLetter] = useState<LetterData | null>(null);
   const [shareModalLetter, setShareModalLetter] = useState<LetterData | null>(null);
+  const [preloadedInvoice, setPreloadedInvoice] = useState<InvoiceData | null>(null);
   const [isPoModalOpen, setIsPoModalOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -279,6 +284,65 @@ export default function App() {
     setActiveTab('tambah');
   };
 
+  // Convert Letter to Invoice
+  const handleConvertToInvoice = useCallback(
+    (letter: LetterData) => {
+      const nextSeq = invoices.length + 1;
+      const invNumber = generateNomorInvoiceBaru(nextSeq);
+      const today = new Date().toISOString().slice(0, 10);
+
+      const mappedItems: InvoiceItem[] = (letter.items || []).map((it, idx) => ({
+        id: `inv-item-${Date.now()}-${idx}`,
+        description: it.description,
+        qty: Number(it.qty) || 1,
+        satuan: it.satuan || 'unit',
+        price: Number(it.price) || 0,
+        total: (Number(it.qty) || 1) * (Number(it.price) || 0),
+      }));
+
+      const subtotal = mappedItems.reduce((acc, it) => acc + (it.total || 0), 0);
+      const tradeInVal =
+        letter.tradeInActive && letter.tradeIn
+          ? Number(letter.tradeIn.totalValue) ||
+            (Number(letter.tradeIn.qty) || 1) * (Number(letter.tradeIn.unitValue) || 0)
+          : 0;
+      const total = Math.max(0, subtotal - tradeInVal);
+
+      const converted: InvoiceData = {
+        id: `inv-${Date.now()}`,
+        invoiceNumber: invNumber,
+        invoiceDate: today,
+        nomorPo: letter.subject || '',
+        companyName: letter.companyName || '',
+        recipientName: letter.recipientName || '',
+        address: letter.address || '',
+        items: mappedItems,
+        tradeInActive: letter.tradeInActive || false,
+        tradeInName: letter.tradeIn?.name || 'Trade In Barang Bekas',
+        tradeInValue: tradeInVal,
+        discountActive: false,
+        discountValue: 0,
+        ppnActive: false,
+        ppnPercent: 11,
+        subtotal,
+        total,
+        terbilang: angkaKeTerbilang(total),
+        bankName: settings.bankName || 'Mandiri',
+        bankAccountName: settings.bankAccountName || 'CV. MULIA TEKHNIK ABADI',
+        bankAccountNumber: settings.bankAccountNumber || '167-00-0529426-8',
+        signatoryName: settings.signatoryName || 'MUHAMAD RIDHO',
+        status: 'Belum Lunas',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      setPreloadedInvoice(converted);
+      handleModeChange('invoice');
+      showToast(`Data penawaran ${letter.letterNumber} dimuat ke Invoice!`);
+    },
+    [invoices.length, settings, handleModeChange, showToast]
+  );
+
   // Customer handlers
   const handleSaveCustomer = async (cust: Customer) => {
     await saveCustomer(cust);
@@ -408,6 +472,8 @@ export default function App() {
             settings={settings}
             customers={customers}
             letters={letters}
+            initialEditingInvoice={preloadedInvoice}
+            onClearInitialInvoice={() => setPreloadedInvoice(null)}
             onToast={showToast}
           />
         ) : appMode === 'gaji' ? (
@@ -512,6 +578,7 @@ export default function App() {
                 onDownloadLetter={handleDownloadPDF}
                 onShareLetter={handleSharePDF}
                 onDeleteLetter={handleDeleteLetter}
+                onConvertToInvoice={handleConvertToInvoice}
                 onToast={showToast}
               />
             )}
@@ -598,6 +665,10 @@ export default function App() {
           onShareClick={(l) => {
             setPreviewModalLetter(null);
             setShareModalLetter(l);
+          }}
+          onConvertToInvoice={(l) => {
+            setPreviewModalLetter(null);
+            handleConvertToInvoice(l);
           }}
         />
       )}

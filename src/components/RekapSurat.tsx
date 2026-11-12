@@ -11,7 +11,8 @@ import {
   Building2,
   FileSpreadsheet,
   AlertTriangle,
-  RotateCcw
+  RotateCcw,
+  Receipt,
 } from 'lucide-react';
 import type { CompanySettings, LetterData } from '../types/index.ts';
 import { formatNumberIndo, formatIndoDate } from '../services/pdfGenerator.ts';
@@ -24,6 +25,7 @@ interface RekapSuratProps {
   onDownloadLetter: (letter: LetterData) => Promise<void>;
   onShareLetter: (letter: LetterData) => void;
   onDeleteLetter: (id: string) => Promise<void>;
+  onConvertToInvoice?: (letter: LetterData) => void;
   onToast: (msg: string) => void;
 }
 
@@ -34,6 +36,7 @@ export const RekapSurat: React.FC<RekapSuratProps> = ({
   onDownloadLetter,
   onShareLetter,
   onDeleteLetter,
+  onConvertToInvoice,
   onToast,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -356,6 +359,17 @@ export const RekapSurat: React.FC<RekapSuratProps> = ({
                       <Edit className="w-3.5 h-3.5 text-blue-700" />
                       <span>Edit</span>
                     </button>
+                    {onConvertToInvoice && (
+                      <button
+                        type="button"
+                        onClick={() => onConvertToInvoice(l)}
+                        className="flex items-center gap-1 bg-amber-50 hover:bg-amber-100 active:scale-95 text-amber-900 text-xs font-semibold px-2.5 py-1.5 rounded-xl border border-amber-300 transition"
+                        title="Buat invoice langsung dari surat penawaran ini"
+                      >
+                        <Receipt className="w-3.5 h-3.5 text-amber-700" />
+                        <span>Ke Invoice</span>
+                      </button>
+                    )}
                   </div>
 
                   <div className="flex items-center gap-1.5">

@@ -286,21 +286,23 @@ export async function generateSlipGajiPDF(
   doc.text('Diterima Oleh,', marginX + boxWidth / 2 + 4, startY + 6);
 
   // Load signature & stamp image if available
-  try {
-    const ttdImg = await loadImageData(settings.signatureImage || '/default-ttd-stempel.png');
-    if (ttdImg) {
-      const maxW = 38;
-      const maxH = 18;
-      let drawW = maxW;
-      let drawH = (ttdImg.height / ttdImg.width) * drawW;
-      if (drawH > maxH) {
-        drawH = maxH;
-        drawW = (ttdImg.width / ttdImg.height) * drawH;
+  if (settings.signatureImage) {
+    try {
+      const ttdImg = await loadImageData(settings.signatureImage);
+      if (ttdImg) {
+        const maxW = 38;
+        const maxH = 18;
+        let drawW = maxW;
+        let drawH = (ttdImg.height / ttdImg.width) * drawW;
+        if (drawH > maxH) {
+          drawH = maxH;
+          drawW = (ttdImg.width / ttdImg.height) * drawH;
+        }
+        doc.addImage(ttdImg.dataUrl, 'PNG', marginX + 4, startY + 8.5, drawW, drawH);
       }
-      doc.addImage(ttdImg.dataUrl, 'PNG', marginX + 4, startY + 8.5, drawW, drawH);
+    } catch (e) {
+      // ignore
     }
-  } catch (e) {
-    // ignore
   }
 
   // Signatory names & dotted lines - guaranteed clear, prominent, and unclipped

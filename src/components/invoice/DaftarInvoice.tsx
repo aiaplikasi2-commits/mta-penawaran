@@ -9,21 +9,25 @@ import {
   Eye,
   Copy,
   Receipt,
+  FileSpreadsheet,
+  X,
 } from 'lucide-react';
 import type { InvoiceData } from '../../types/invoice.ts';
-import type { CompanySettings } from '../../types/index.ts';
+import type { CompanySettings, LetterData } from '../../types/index.ts';
 import { formatInvoiceDate, downloadInvoicePDF, downloadRekapInvoicePDF } from '../../services/invoicePdfGenerator.ts';
 import { formatNumberIndo } from '../../services/pdfGenerator.ts';
 
 interface DaftarInvoiceProps {
   invoices: InvoiceData[];
   settings: CompanySettings;
+  letters?: LetterData[];
   onCreateNew: () => void;
   onEdit: (invoice: InvoiceData) => void;
   onDuplicate: (invoice: InvoiceData) => void;
   onViewPdf: (invoice: InvoiceData) => void;
   onShare: (invoice: InvoiceData) => void;
   onDelete: (id: string) => Promise<void>;
+  onSelectLetter?: (letter: LetterData) => void;
   onToast: (msg: string) => void;
 }
 
@@ -32,17 +36,21 @@ export type InvoiceFilterTab = 'Semua' | 'Bulan Ini' | 'Lunas' | 'Belum Lunas';
 export const DaftarInvoice: React.FC<DaftarInvoiceProps> = ({
   invoices,
   settings,
+  letters = [],
   onCreateNew,
   onEdit,
   onDuplicate,
   onViewPdf,
   onShare,
   onDelete,
+  onSelectLetter,
   onToast,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [activeFilterTab, setActiveFilterTab] = useState<InvoiceFilterTab>('Semua');
   const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(null);
+  const [showLetterPicker, setShowLetterPicker] = useState(false);
+  const [letterPickerSearch, setLetterPickerSearch] = useState('');
 
   const now = new Date();
   const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -99,6 +107,24 @@ export const DaftarInvoice: React.FC<DaftarInvoiceProps> = ({
         </h2>
 
         <div className="flex items-center gap-1.5 flex-wrap">
+          {onSelectLetter && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!letters || letters.length === 0) {
+                  onToast('Belum ada Surat Penawaran yang tersimpan');
+                  return;
+                }
+                setShowLetterPicker(true);
+              }}
+              className="flex items-center gap-1 px-3 py-1.5 bg-blue-700 hover:bg-blue-800 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition"
+              title="Ambil data dari Surat Penawaran"
+            >
+              <FileSpreadsheet className="w-3.5 h-3.5 text-blue-200" />
+              <span>Ambil dari Penawaran</span>
+            </button>
+          )}
+
           <button
             type="button"
             onClick={handleDownloadRekap}
@@ -293,6 +319,74 @@ export const DaftarInvoice: React.FC<DaftarInvoiceProps> = ({
               >
                 Hapus
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PICK SURAT PENAWARAN */}
+      {showLetterPicker && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95">
+            <div className="bg-[#0b223d] text-white p-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <FileSpreadsheet className="w-4 h-4 text-sky-400" />
+                <h3 className="font-bold text-sm">Pilih Surat Penawaran untuk Invoice</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLetterPicker(false)}
+                className="p-1 rounded-lg hover:bg-white/10 text-slate-300 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-3 border-b border-slate-100">
+              <input
+                type="text"
+                value={letterPickerSearch}
+                onChange={(e) => setLetterPickerSearch(e.target.value)}
+                placeholder="Cari nomor surat, PT, perihal..."
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600"
+              />
+            </div>
+            <div className="max-h-80 overflow-y-auto p-2 space-y-1.5">
+              {(letters || [])
+                .filter((l) => {
+                  const q = letterPickerSearch.toLowerCase();
+                  return (
+                    !q ||
+                    (l.letterNumber || '').toLowerCase().includes(q) ||
+                    (l.companyName || '').toLowerCase().includes(q) ||
+                    (l.subject || '').toLowerCase().includes(q)
+                  );
+                })
+                .map((l) => (
+                  <button
+                    key={l.id}
+                    type="button"
+                    onClick={() => {
+                      setShowLetterPicker(false);
+                      onSelectLetter?.(l);
+                    }}
+                    className="w-full text-left p-2.5 rounded-xl hover:bg-blue-50 transition flex items-center justify-between gap-2 border border-slate-100 group"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-bold text-xs text-slate-900 group-hover:text-blue-900">
+                        {l.letterNumber}
+                      </p>
+                      <p className="text-[11px] text-slate-600 truncate">{l.companyName}</p>
+                      {l.subject && (
+                        <p className="text-[10px] text-slate-400 truncate italic">
+                          Perihal: {l.subject}
+                        </p>
+                      )}
+                    </div>
+                    <span className="text-[11px] font-bold text-blue-700 bg-blue-100 group-hover:bg-blue-600 group-hover:text-white px-2.5 py-1 rounded-lg shrink-0 transition">
+                      Pilih
+                    </span>
+                  </button>
+                ))}
             </div>
           </div>
         </div>

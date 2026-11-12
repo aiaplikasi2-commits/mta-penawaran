@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Printer,
   Download,
@@ -8,10 +8,12 @@ import {
   Check,
   X,
   FileText,
+  Edit,
 } from 'lucide-react';
 import type { BastData } from '../../types/bast.ts';
 import type { CompanySettings } from '../../types/index.ts';
 import { formatBastDate, downloadBastPDF } from '../../services/bastPdfGenerator.ts';
+import { saveBast } from '../../services/bastDb.ts';
 
 interface BastPreviewModalProps {
   isOpen: boolean;
@@ -19,6 +21,8 @@ interface BastPreviewModalProps {
   bast: BastData | null;
   settings: CompanySettings;
   onDelete?: (id: string) => void;
+  onEdit?: (bast: BastData) => void;
+  onUpdateBast?: (bast: BastData) => void;
   onToast: (msg: string) => void;
 }
 
@@ -28,43 +32,66 @@ export const BastPreviewModal: React.FC<BastPreviewModalProps> = ({
   bast,
   settings,
   onDelete,
+  onEdit,
+  onUpdateBast,
   onToast,
 }) => {
+  const [currentBast, setCurrentBast] = useState<BastData | null>(bast);
   const [isCopied, setIsCopied] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
-  if (!isOpen || !bast) return null;
+  useEffect(() => {
+    if (bast) {
+      setCurrentBast(bast);
+    }
+  }, [bast]);
 
-  const pdfFileName = `${bast.nomorBast.replace(/[/\\?%*:|"<>]/g, '_')}_${(bast.pihakPertamaPerusahaan || 'BAST').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
+  if (!isOpen || !currentBast) return null;
+
+  const handleFieldChange = (field: keyof BastData, value: string) => {
+    const updated = {
+      ...currentBast,
+      [field]: value,
+      updatedAt: new Date().toISOString(),
+    };
+    setCurrentBast(updated);
+    if (onUpdateBast) {
+      onUpdateBast(updated);
+    } else {
+      saveBast(updated).catch(() => {});
+    }
+  };
+
+  const pdfFileName = `${currentBast.nomorBast.replace(/[/\\?%*:|"<>]/g, '_')}_${(currentBast.pihakPertamaPerusahaan || 'BAST').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
 
   const handleCopyText = async () => {
     const p1Lines: string[] = [];
-    if (bast.pihakPertamaNama?.trim()) p1Lines.push(`- Nama: ${bast.pihakPertamaNama.trim()}`);
-    if (bast.pihakPertamaJabatan?.trim()) p1Lines.push(`- Jabatan: ${bast.pihakPertamaJabatan.trim()}`);
-    if (bast.pihakPertamaPerusahaan?.trim()) p1Lines.push(`- Perusahaan: ${bast.pihakPertamaPerusahaan.trim()}`);
-    if (bast.pihakPertamaAlamat?.trim()) p1Lines.push(`- Alamat: ${bast.pihakPertamaAlamat.trim()}`);
+    if (currentBast.pihakPertamaNama?.trim()) p1Lines.push(`- Nama: ${currentBast.pihakPertamaNama.trim()}`);
+    if (currentBast.pihakPertamaJabatan?.trim()) p1Lines.push(`- Jabatan: ${currentBast.pihakPertamaJabatan.trim()}`);
+    if (currentBast.pihakPertamaPerusahaan?.trim()) p1Lines.push(`- Perusahaan: ${currentBast.pihakPertamaPerusahaan.trim()}`);
+    if (currentBast.pihakPertamaAlamat?.trim()) p1Lines.push(`- Alamat: ${currentBast.pihakPertamaAlamat.trim()}`);
 
     const text = `*BERITA ACARA SERAH TERIMA*
-Nomor: ${bast.nomorBast}
+Nomor: ${currentBast.nomorBast}
 ----------------------------------------
-Pada hari ini ${bast.hariTerbilang || '-'}, kami yang bertanda tangan di bawah ini :
+Pada hari ini ${currentBast.hariTerbilang || '-'}, kami yang bertanda tangan di bawah ini :
 
 *PIHAK PERTAMA (KLIEN):*
 ${p1Lines.length > 0 ? p1Lines.join('\n') : '- (Tidak diisi)'}
 
 *PIHAK KEDUA (PELAKSANA):*
-- Nama: ${bast.pihakKeduaNama || settings.signatoryName || 'MUHAMAD RIDHO'}
+- Nama: ${currentBast.pihakKeduaNama || settings.signatoryName || 'MUHAMAD RIDHO'}
 - Perusahaan: ${settings.companyName || 'CV. MULIA TEKHNIK ABADI'}
-- Alamat: ${bast.pihakKeduaAlamat || settings.address}
+- Alamat: ${currentBast.pihakKeduaAlamat || settings.address}
 
-Menerangkan bahwa pekerjaan dengan Nomor PO: *${bast.nomorPo || '-'}* telah selesai dikerjakan dengan rincian:
-${(bast.items || []).map((it, idx) => `${idx + 1}. ${it.name} (${it.keterangan || 'Sesuai'})`).join('\n')}
+Menerangkan bahwa pekerjaan dengan Nomor PO: *${currentBast.nomorPo || '-'}* telah selesai dikerjakan dengan rincian:
+${(currentBast.items || []).map((it, idx) => `${idx + 1}. ${it.name} (${it.keterangan || 'Sesuai'})`).join('\n')}
 
-Telah selesai dikerjakan yang dimulai tanggal ${formatBastDate(bast.tanggalMulai)} s/d ${formatBastDate(bast.tanggalSelesai)} dalam kondisi baik dan berfungsi.
+Telah selesai dikerjakan yang dimulai tanggal ${formatBastDate(currentBast.tanggalMulai)} s/d ${formatBastDate(currentBast.tanggalSelesai)} dalam kondisi baik dan berfungsi.
 ----------------------------------------
-${bast.kota || 'Bogor'}, ${formatBastDate(bast.tanggalBast)}
-Pihak Pertama: ${[bast.pihakPertamaNama, bast.pihakPertamaJabatan, bast.pihakPertamaPerusahaan].filter(Boolean).join(' - ') || '-'}
-Pihak Kedua: ${bast.pihakKeduaNama || settings.signatoryName || 'MUHAMAD RIDHO'}`;
+${currentBast.kota || 'Bogor'}, ${formatBastDate(currentBast.tanggalBast)}
+Pihak Pertama: ${[currentBast.pihakPertamaNama, currentBast.pihakPertamaJabatan, currentBast.pihakPertamaPerusahaan].filter(Boolean).join(' - ') || '-'}
+Pihak Kedua: ${currentBast.pihakKeduaNama || settings.signatoryName || 'MUHAMAD RIDHO'}`;
 
     try {
       await navigator.clipboard.writeText(text);
@@ -77,20 +104,20 @@ Pihak Kedua: ${bast.pihakKeduaNama || settings.signatoryName || 'MUHAMAD RIDHO'}
   };
 
   const handleShareWA = () => {
-    const penerima = [bast.pihakPertamaNama, bast.pihakPertamaJabatan, bast.pihakPertamaPerusahaan]
+    const penerima = [currentBast.pihakPertamaNama, currentBast.pihakPertamaJabatan, currentBast.pihakPertamaPerusahaan]
       .filter(Boolean)
       .join(' - ');
 
     const text = `*BERITA ACARA SERAH TERIMA (BAST)*
 *CV. MULIA TEKHNIK ABADI*
-Nomor: *${bast.nomorBast}*
-PO: *${bast.nomorPo || '-'}*
+Nomor: *${currentBast.nomorBast}*
+PO: *${currentBast.nomorPo || '-'}*
 
 Kepada Yth:
 *${penerima || 'Pihak Pertama'}*
 
 Pekerjaan telah selesai dikerjakan dan diserahterimakan dalam kondisi baik dan berfungsi.
-Tanggal: *${formatBastDate(bast.tanggalBast)}*
+Tanggal: *${formatBastDate(currentBast.tanggalBast)}*
 
 _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
 
@@ -101,7 +128,7 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
   const handleDownloadPDF = async () => {
     try {
       setIsDownloading(true);
-      await downloadBastPDF(bast, settings);
+      await downloadBastPDF(currentBast, settings);
       onToast(`File ${pdfFileName} berhasil diunduh!`);
     } catch (err: any) {
       onToast('Gagal membuat PDF: ' + (err.message || ''));
@@ -119,7 +146,7 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
       <div className="w-full max-w-3xl bg-slate-100 rounded-3xl shadow-2xl overflow-hidden flex flex-col my-4 max-h-[96vh] animate-in fade-in zoom-in-95 duration-150">
         {/* ACTION BAR */}
         <div className="bg-[#0b223d] px-3 sm:px-4 py-3 flex flex-wrap items-center justify-between gap-2 border-b border-blue-900/60 sticky top-0 z-10">
-          <div className="flex items-center gap-1.5 sm:gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             <button
               type="button"
               onClick={handlePrint}
@@ -148,12 +175,27 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
               <span>Bagikan WA</span>
             </button>
 
+            {onEdit && (
+              <button
+                type="button"
+                onClick={() => {
+                  onEdit(currentBast);
+                  onClose();
+                }}
+                className="flex items-center gap-1.5 bg-blue-800/80 hover:bg-blue-700 text-sky-200 font-bold text-xs px-3 py-2 rounded-xl transition shadow-xs active:scale-95 border border-sky-400/30"
+                title="Buka form untuk edit lengkap"
+              >
+                <Edit className="w-3.5 h-3.5" />
+                <span>Edit Form</span>
+              </button>
+            )}
+
             {onDelete && (
               <button
                 type="button"
                 onClick={() => {
-                  if (confirm(`Hapus dokumen ${bast.nomorBast}?`)) {
-                    onDelete(bast.id);
+                  if (confirm(`Hapus dokumen ${currentBast.nomorBast}?`)) {
+                    onDelete(currentBast.id);
                     onClose();
                   }
                 }}
@@ -229,47 +271,68 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
                 BERITA ACARA SERAH TERIMA
               </h2>
               <p className="text-xs font-medium text-slate-900 mt-1">
-                Nomor : {bast.nomorBast}
+                Nomor : {currentBast.nomorBast}
               </p>
             </div>
 
             {/* 3. PARAGRAF PEMBUKA */}
             <p className="text-justify mb-4">
-              Pada hari ini {bast.hariTerbilang || 'Senin tanggal Dua Bulan November Tahun Dua Ribu Dua Puluh Enam'}, kami yang bertanda tangan di bawah ini :
+              Pada hari ini {currentBast.hariTerbilang || 'Senin tanggal Dua Bulan November Tahun Dua Ribu Dua Puluh Enam'}, kami yang bertanda tangan di bawah ini :
             </p>
 
-            {/* 4. PIHAK PERTAMA (Hanya tampilkan bidang yang diisi) */}
+            {/* 4. PIHAK PERTAMA (Dapat diedit manual langsung di preview) */}
             <div className="mb-4 space-y-1">
-              <p className="font-semibold">Yang disebut Pihak Pertama,</p>
+              <div className="flex items-center justify-between">
+                <p className="font-semibold">Yang disebut Pihak Pertama,</p>
+                <span className="text-[10px] text-blue-600 print:hidden font-sans italic">
+                  (Klik untuk edit manual)
+                </span>
+              </div>
               <div className="pl-0 space-y-1">
-                {bast.pihakPertamaNama && bast.pihakPertamaNama.trim() && (
-                  <div className="grid grid-cols-[100px_14px_1fr]">
-                    <span>Nama</span>
-                    <span>:</span>
-                    <span className="font-medium">{bast.pihakPertamaNama}</span>
-                  </div>
-                )}
-                {bast.pihakPertamaJabatan && bast.pihakPertamaJabatan.trim() && (
-                  <div className="grid grid-cols-[100px_14px_1fr]">
-                    <span>Jabatan</span>
-                    <span>:</span>
-                    <span className="font-medium">{bast.pihakPertamaJabatan}</span>
-                  </div>
-                )}
-                {bast.pihakPertamaPerusahaan && bast.pihakPertamaPerusahaan.trim() && (
-                  <div className="grid grid-cols-[100px_14px_1fr]">
-                    <span>Perusahaan</span>
-                    <span>:</span>
-                    <span className="font-bold uppercase">{bast.pihakPertamaPerusahaan}</span>
-                  </div>
-                )}
-                {bast.pihakPertamaAlamat && bast.pihakPertamaAlamat.trim() && (
-                  <div className="grid grid-cols-[100px_14px_1fr]">
-                    <span>Alamat</span>
-                    <span>:</span>
-                    <span>{bast.pihakPertamaAlamat}</span>
-                  </div>
-                )}
+                <div className="grid grid-cols-[100px_14px_1fr] items-center">
+                  <span>Nama</span>
+                  <span>:</span>
+                  <input
+                    type="text"
+                    value={currentBast.pihakPertamaNama || ''}
+                    onChange={(e) => handleFieldChange('pihakPertamaNama', e.target.value)}
+                    placeholder="Nama Pihak Pertama..."
+                    className="font-medium bg-transparent hover:bg-amber-50/70 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1 -mx-1 py-0.5 outline-hidden transition print:bg-transparent print:p-0 print:m-0 w-full"
+                  />
+                </div>
+                <div className="grid grid-cols-[100px_14px_1fr] items-center">
+                  <span>Jabatan</span>
+                  <span>:</span>
+                  <input
+                    type="text"
+                    value={currentBast.pihakPertamaJabatan || ''}
+                    onChange={(e) => handleFieldChange('pihakPertamaJabatan', e.target.value)}
+                    placeholder="Jabatan (Opsional)..."
+                    className="font-medium bg-transparent hover:bg-amber-50/70 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1 -mx-1 py-0.5 outline-hidden transition print:bg-transparent print:p-0 print:m-0 w-full"
+                  />
+                </div>
+                <div className="grid grid-cols-[100px_14px_1fr] items-center">
+                  <span>Perusahaan</span>
+                  <span>:</span>
+                  <input
+                    type="text"
+                    value={currentBast.pihakPertamaPerusahaan || ''}
+                    onChange={(e) => handleFieldChange('pihakPertamaPerusahaan', e.target.value)}
+                    placeholder="Nama Perusahaan..."
+                    className="font-bold uppercase bg-transparent hover:bg-amber-50/70 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1 -mx-1 py-0.5 outline-hidden transition print:bg-transparent print:p-0 print:m-0 w-full"
+                  />
+                </div>
+                <div className="grid grid-cols-[100px_14px_1fr] items-start">
+                  <span className="pt-0.5">Alamat</span>
+                  <span className="pt-0.5">:</span>
+                  <textarea
+                    rows={2}
+                    value={currentBast.pihakPertamaAlamat || ''}
+                    onChange={(e) => handleFieldChange('pihakPertamaAlamat', e.target.value)}
+                    placeholder="Alamat Lengkap..."
+                    className="bg-transparent hover:bg-amber-50/70 focus:bg-white focus:ring-1 focus:ring-blue-500 rounded px-1 -mx-1 py-0.5 outline-hidden transition print:bg-transparent print:p-0 print:m-0 w-full resize-none font-serif text-[13px] leading-relaxed"
+                  />
+                </div>
               </div>
             </div>
 
@@ -281,14 +344,14 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
                   <span>Nama</span>
                   <span>:</span>
                   <span className="font-bold uppercase">
-                    {bast.pihakKeduaNama || settings.signatoryName || 'MUHAMAD RIDHO'}
+                    {currentBast.pihakKeduaNama || settings.signatoryName || 'MUHAMAD RIDHO'}
                   </span>
                 </div>
                 <div className="grid grid-cols-[100px_14px_1fr]">
                   <span>Alamat</span>
                   <span>:</span>
                   <span>
-                    {bast.pihakKeduaAlamat || settings.address || 'Jln. Letda Nasir No. 58 Bogor, 16966 Kel. Cikeas Udik Kec. Gunung Putri Bogor'}
+                    {currentBast.pihakKeduaAlamat || settings.address || 'Jln. Letda Nasir No. 58 Bogor, 16966 Kel. Cikeas Udik Kec. Gunung Putri Bogor'}
                   </span>
                 </div>
               </div>
@@ -296,7 +359,7 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
 
             {/* 6. PERNYATAAN PO */}
             <p className="text-justify mb-3">
-              Dengan ini menerangkan bahwa pekerjaan dengan nomor PO <strong>{bast.nomorPo || '-'}</strong> telah selesai dikerjakan dengan rincian sebagai berikut :
+              Dengan ini menerangkan bahwa pekerjaan dengan nomor PO <strong>{currentBast.nomorPo || '-'}</strong> telah selesai dikerjakan dengan rincian sebagai berikut :
             </p>
 
             {/* 7. TABEL BARANG / JASA */}
@@ -310,7 +373,7 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
                   </tr>
                 </thead>
                 <tbody>
-                  {(bast.items || []).map((it, idx) => (
+                  {(currentBast.items || []).map((it, idx) => (
                     <tr key={it.id || idx} className="border-b border-black last:border-b-0">
                       <td className="p-2 border-r border-black text-center align-top">{idx + 1}</td>
                       <td className="p-2 border-r border-black align-top font-medium">{it.name}</td>
@@ -323,33 +386,33 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
 
             {/* 8. PARAGRAF PELAKSANAAN & PENUTUP */}
             <p className="text-justify mb-3">
-              Telah selesai dikerjakan oleh Pihak Kedua yang dimulai pada tanggal {formatBastDate(bast.tanggalMulai)} dan selesai pada tanggal {formatBastDate(bast.tanggalSelesai)} dan selanjutnya diserahkan kepada Pihak Pertama dalam kondisi baik dan berfungsi.
+              Telah selesai dikerjakan oleh Pihak Kedua yang dimulai pada tanggal {formatBastDate(currentBast.tanggalMulai)} dan selesai pada tanggal {formatBastDate(currentBast.tanggalSelesai)} dan selanjutnya diserahkan kepada Pihak Pertama dalam kondisi baik dan berfungsi.
             </p>
 
             <p className="text-justify mb-8">
               Demikian Berita Acara Serah Terima ini dibuat untuk dapat digunakan sebagaimana mestinya.
             </p>
 
-            {/* 9. TANDA TANGAN (Berjauhan dan Rapi) */}
+            {/* 9. TANDA TANGAN (Berjauhan dan Rapi - TTD & Stempel basah saat dicetak) */}
             <div className="flex justify-between items-start text-xs font-sans mt-8 px-2">
               {/* Kiri: Pihak Pertama */}
               <div className="w-56 text-left">
-                <p>{bast.kota || 'Bogor'}, {formatBastDate(bast.tanggalBast)}</p>
-                <p className="font-semibold mb-12">Pihak Pertama</p>
-                {bast.pihakPertamaNama ? (
+                <p>{currentBast.kota || 'Bogor'}, {formatBastDate(currentBast.tanggalBast)}</p>
+                <p className="font-semibold mb-14">Pihak Pertama</p>
+                {currentBast.pihakPertamaNama ? (
                   <>
-                    <p className="font-bold uppercase">{bast.pihakPertamaNama}</p>
-                    {(bast.pihakPertamaJabatan || bast.pihakPertamaPerusahaan) && (
+                    <p className="font-bold uppercase">{currentBast.pihakPertamaNama}</p>
+                    {(currentBast.pihakPertamaJabatan || currentBast.pihakPertamaPerusahaan) && (
                       <p className="text-[11px] text-slate-700">
-                        {[bast.pihakPertamaJabatan, bast.pihakPertamaPerusahaan].filter(Boolean).join(' - ')}
+                        {[currentBast.pihakPertamaJabatan, currentBast.pihakPertamaPerusahaan].filter(Boolean).join(' - ')}
                       </p>
                     )}
                   </>
-                ) : bast.pihakPertamaPerusahaan ? (
+                ) : currentBast.pihakPertamaPerusahaan ? (
                   <>
-                    <p className="font-bold uppercase">{bast.pihakPertamaPerusahaan}</p>
-                    {bast.pihakPertamaJabatan && (
-                      <p className="text-[11px] text-slate-700">{bast.pihakPertamaJabatan}</p>
+                    <p className="font-bold uppercase">{currentBast.pihakPertamaPerusahaan}</p>
+                    {currentBast.pihakPertamaJabatan && (
+                      <p className="text-[11px] text-slate-700">{currentBast.pihakPertamaJabatan}</p>
                     )}
                   </>
                 ) : (
@@ -357,19 +420,14 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
                 )}
               </div>
 
-              {/* Kanan: Pihak Kedua (MTA) */}
+              {/* Kanan: Pihak Kedua (MTA) - TTD & Stempel fisik saat print */}
               <div className="w-56 text-left">
                 <p className="invisible">Bogor</p>
                 <p className="font-semibold mb-2">Pihak Kedua</p>
-                <div className="h-14 flex items-center">
-                  <img
-                    src={settings.signatureImage || '/default-ttd-stempel.png'}
-                    alt="TTD & Stempel MTA"
-                    className="max-h-14 w-auto object-contain"
-                  />
-                </div>
+                {/* Ruang kosong rapi untuk tanda tangan basah & stempel fisik saat print */}
+                <div className="h-14" />
                 <p className="font-bold uppercase mt-2">
-                  {bast.pihakKeduaNama || settings.signatoryName || 'MUHAMAD RIDHO'}
+                  {currentBast.pihakKeduaNama || settings.signatoryName || 'MUHAMAD RIDHO'}
                 </p>
               </div>
             </div>

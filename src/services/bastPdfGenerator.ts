@@ -302,16 +302,7 @@ export async function generateBastPDF(
   doc.text('Pihak Kedua', rightX, currentY);
   currentY += 3;
 
-  // Gambar Tanda Tangan & Stempel Pihak Kedua
-  try {
-    const ttdImg = await loadImageData(settings.signatureImage || '/default-ttd-stempel.png');
-    if (ttdImg) {
-      doc.addImage(ttdImg.dataUrl, 'PNG', rightX - 2, currentY, 36, 17);
-    }
-  } catch {
-    // ignore
-  }
-
+  // Ruang kosong untuk tanda tangan & stempel manual saat dicetak/print
   currentY += 19;
 
   // Nama Penandatangan Pihak Pertama

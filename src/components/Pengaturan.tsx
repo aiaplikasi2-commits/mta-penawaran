@@ -34,24 +34,24 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
   onRefreshAllData,
   onToast,
 }) => {
-  const [formData, setFormData] = useState<CompanySettings>({
+  const [formData, setFormData] = useState<CompanySettings>(() => ({
     ...DEFAULT_SETTINGS,
     ...settings,
-    logoImage: settings.logoImage || '/default-logo.png',
-    kopImage: settings.kopImage || '/default-kop.png',
-    signatureImage: settings.signatureImage || '/default-ttd-stempel.png',
+    logoImage: settings.logoImage !== undefined ? settings.logoImage : (DEFAULT_SETTINGS.logoImage || ''),
+    kopImage: settings.kopImage !== undefined ? settings.kopImage : (DEFAULT_SETTINGS.kopImage || ''),
+    signatureImage: settings.signatureImage !== undefined ? settings.signatureImage : '',
     tarifLemburPerJam: settings.tarifLemburPerJam ?? 12000,
-  });
+  }));
   const [isSaving, setIsSaving] = useState(false);
 
-  // Synchronize when settings prop changes
+  // Synchronize when settings prop changes (respect empty strings when images were deleted)
   useEffect(() => {
     setFormData((prev) => ({
       ...DEFAULT_SETTINGS,
       ...settings,
-      logoImage: settings.logoImage || prev.logoImage || '/default-logo.png',
-      kopImage: settings.kopImage || prev.kopImage || '/default-kop.png',
-      signatureImage: settings.signatureImage || prev.signatureImage || '/default-ttd-stempel.png',
+      logoImage: settings.logoImage !== undefined ? settings.logoImage : prev.logoImage,
+      kopImage: settings.kopImage !== undefined ? settings.kopImage : prev.kopImage,
+      signatureImage: settings.signatureImage !== undefined ? settings.signatureImage : prev.signatureImage,
       tarifLemburPerJam: settings.tarifLemburPerJam ?? prev.tarifLemburPerJam ?? 12000,
     }));
   }, [settings]);
@@ -110,8 +110,14 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
     e.preventDefault();
     setIsSaving(true);
     try {
-      await onSaveSettings(formData);
-      onToast('Pengaturan perusahaan berhasil disimpan sebagai sumber data tunggal!');
+      const cleanData: CompanySettings = {
+        ...formData,
+        logoImage: formData.logoImage ?? '',
+        kopImage: formData.kopImage ?? '',
+        signatureImage: formData.signatureImage ?? '',
+      };
+      await onSaveSettings(cleanData);
+      onToast('Pengaturan perusahaan berhasil disimpan permanen!');
     } catch {
       onToast('Gagal menyimpan pengaturan');
     } finally {
@@ -244,16 +250,25 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                     <ImageIcon className="w-4 h-4 text-blue-600" />
                     <span>1. Upload Logo Perusahaan</span>
                   </div>
-                  {formData.logoImage && (
+                  {formData.logoImage ? (
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, logoImage: '' })}
-                      className="text-red-500 hover:text-red-700 p-1"
-                      title="Hapus Logo"
+                      onClick={async () => {
+                        const updated = { ...formData, logoImage: '' };
+                        setFormData(updated);
+                        try {
+                          await onSaveSettings(updated);
+                          onToast('Logo berhasil dihapus permanen!');
+                        } catch {
+                          onToast('Logo dihapus. Klik Simpan Pengaturan di bawah.');
+                        }
+                      }}
+                      className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-lg transition"
+                      title="Hapus Logo Permanen"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                  )}
+                  ) : null}
                 </div>
                 <p className="text-[10.5px] text-slate-500 leading-tight">
                   <strong className="text-blue-700">Khusus Slip Gaji:</strong> Hanya logo murni tanpa alamat / KOP surat.
@@ -270,7 +285,9 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                   ) : (
                     <div className="text-center text-slate-400">
                       <ImageIcon className="w-7 h-7 mx-auto mb-1 opacity-40" />
-                      <span className="text-[10px]">Belum ada logo</span>
+                      <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                        Logo Kosong / Terhapus
+                      </span>
                     </div>
                   )}
                 </div>
@@ -311,16 +328,25 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                     <FileText className="w-4 h-4 text-sky-600" />
                     <span>2. Upload KOP Surat</span>
                   </div>
-                  {formData.kopImage && (
+                  {formData.kopImage ? (
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, kopImage: '' })}
-                      className="text-red-500 hover:text-red-700 p-1"
-                      title="Hapus KOP"
+                      onClick={async () => {
+                        const updated = { ...formData, kopImage: '' };
+                        setFormData(updated);
+                        try {
+                          await onSaveSettings(updated);
+                          onToast('KOP Surat berhasil dihapus permanen!');
+                        } catch {
+                          onToast('KOP dihapus. Klik Simpan Pengaturan di bawah.');
+                        }
+                      }}
+                      className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-lg transition"
+                      title="Hapus KOP Permanen"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
-                  )}
+                  ) : null}
                 </div>
                 <p className="text-[10.5px] text-slate-500 leading-tight">
                   <strong className="text-sky-700">Khusus Surat Penawaran A4:</strong> Header KOP resmi dengan garis pembatas.
@@ -337,7 +363,9 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                   ) : (
                     <div className="text-center text-slate-400">
                       <FileText className="w-7 h-7 mx-auto mb-1 opacity-40" />
-                      <span className="text-[10px]">Belum ada KOP</span>
+                      <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">
+                        KOP Kosong / Terhapus
+                      </span>
                     </div>
                   )}
                 </div>
@@ -378,16 +406,25 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                     <FileSignature className="w-4 h-4 text-emerald-600" />
                     <span>3. Upload Stempel / TTD</span>
                   </div>
-                  {formData.signatureImage && (
+                  {formData.signatureImage ? (
                     <button
                       type="button"
-                      onClick={() => setFormData({ ...formData, signatureImage: '' })}
-                      className="text-red-500 hover:text-red-700 p-1"
-                      title="Hapus TTD/Stempel"
+                      onClick={async () => {
+                        const updated = { ...formData, signatureImage: '' };
+                        setFormData(updated);
+                        try {
+                          await onSaveSettings(updated);
+                          onToast('TTD & Stempel berhasil dihapus permanen!');
+                        } catch {
+                          onToast('TTD & Stempel dikosongkan. Klik "Simpan Pengaturan" di bawah.');
+                        }
+                      }}
+                      className="text-red-500 hover:text-red-700 p-1 hover:bg-red-50 rounded-lg transition"
+                      title="Hapus TTD / Stempel permanen"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4 text-red-600" />
                     </button>
-                  )}
+                  ) : null}
                 </div>
                 <p className="text-[10.5px] text-slate-500 leading-tight">
                   <strong className="text-emerald-700">Tanda Tangan &amp; Stempel:</strong> Digunakan di Surat Penawaran &amp; Slip Gaji.
@@ -403,8 +440,10 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                     />
                   ) : (
                     <div className="text-center text-slate-400">
-                      <FileSignature className="w-7 h-7 mx-auto mb-1 opacity-40" />
-                      <span className="text-[10px]">Belum ada TTD / Stempel</span>
+                      <FileSignature className="w-7 h-7 mx-auto mb-1 opacity-40 text-slate-400" />
+                      <span className="text-[10px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-md block mt-1">
+                        Dihapus (Kosong)
+                      </span>
                     </div>
                   )}
                 </div>
@@ -426,6 +465,26 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                   onChange={(e) => handleImageUpload(e, 'signatureImage')}
                   className="hidden"
                 />
+
+                {formData.signatureImage && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const updated = { ...formData, signatureImage: '' };
+                      setFormData(updated);
+                      try {
+                        await onSaveSettings(updated);
+                        onToast('TTD & Stempel berhasil dihapus permanen!');
+                      } catch {
+                        onToast('TTD & Stempel dikosongkan. Klik "Simpan Pengaturan" di bawah.');
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-1.5 text-center text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 py-1.5 rounded-xl transition"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>Hapus TTD / Stempel Permanen</span>
+                  </button>
+                )}
 
                 <button
                   type="button"

@@ -12,7 +12,7 @@ export const DEFAULT_SETTINGS: CompanySettings = {
   signatoryName: 'Muhamad Ridho',
   logoImage: '/default-logo.png',
   kopImage: '/default-kop.png',
-  signatureImage: '/default-ttd-stempel.png',
+  signatureImage: '',
   stampImage: '',
   numberFormat: '{seq}/10/MTA/{year}',
   nextSequenceNumber: 16,
@@ -60,7 +60,11 @@ export async function getCompanySettings(): Promise<CompanySettings> {
     const snap = await getDoc(doc(db, 'settings', 'company_settings'));
     if (snap.exists()) {
       const data = snap.data() as CompanySettings;
-      const combined = { ...DEFAULT_SETTINGS, ...data };
+      const combined = {
+        ...DEFAULT_SETTINGS,
+        ...data,
+        signatureImage: data.signatureImage !== undefined ? data.signatureImage : '',
+      };
       // Cache locally
       const idbDb = await getDb();
       await idbDb.put('settings', combined, 'company_settings');
@@ -76,7 +80,11 @@ export async function getCompanySettings(): Promise<CompanySettings> {
     await idbDb.put('settings', DEFAULT_SETTINGS, 'company_settings');
     return DEFAULT_SETTINGS;
   }
-  return { ...DEFAULT_SETTINGS, ...saved };
+  return {
+    ...DEFAULT_SETTINGS,
+    ...saved,
+    signatureImage: saved.signatureImage !== undefined ? saved.signatureImage : '',
+  };
 }
 
 export async function saveCompanySettings(settings: CompanySettings): Promise<void> {

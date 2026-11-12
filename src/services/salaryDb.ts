@@ -11,7 +11,7 @@ export const DEFAULT_SALARY_SETTINGS: SalarySettings = {
   postalCode: '16966',
   phone: '0812 - 1085 - 2489 / 0878 - 4062 - 0432',
   signatoryName: 'Muhamad Ridho',
-  signatureImage: '/default-ttd-stempel.png',
+  signatureImage: '',
   stampImage: '',
   tarifLemburPerJam: 12000,
 };
@@ -360,7 +360,7 @@ export async function getSalarySettings(): Promise<SalarySettings> {
     signatoryName: comp.signatoryName || 'Muhamad Ridho',
     logoImage: comp.logoImage || '/default-logo.png',
     kopImage: comp.kopImage || '/default-kop.png',
-    signatureImage: comp.signatureImage || '/default-ttd-stempel.png',
+    signatureImage: comp.signatureImage ?? '',
     stampImage: comp.stampImage || '',
     tarifLemburPerJam: comp.tarifLemburPerJam ?? 12000,
   };
