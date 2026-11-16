@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Bell,
   ChevronRight,
   Menu,
   X,
@@ -46,7 +45,6 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
   onToast,
 }) => {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [notificationOpen, setNotificationOpen] = useState(false);
 
   // Unique POs count
   const allPos = new Set<string>();
@@ -99,50 +97,9 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
           </div>
         </div>
 
-        {/* Right side: Sync Status + Notification Bell */}
+        {/* Right side: Sync Status */}
         <div className="flex items-center gap-1.5 shrink-0">
           <SyncStatusBar onToast={onToast || (() => {})} />
-
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setNotificationOpen(!notificationOpen)}
-              className="p-1.5 text-slate-700 hover:text-blue-900 hover:bg-slate-100 rounded-xl transition relative"
-              title="Aktivitas"
-            >
-              <Bell className="w-5 h-5 text-blue-900" />
-              <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-red-600 text-white font-extrabold text-[9px] rounded-full flex items-center justify-center shadow-xs">
-                3
-              </span>
-            </button>
-
-          {/* Quick Notification Popup */}
-          {notificationOpen && (
-            <div className="absolute right-0 top-10 w-64 bg-white rounded-2xl shadow-xl border border-slate-200 p-3 z-50 animate-in fade-in zoom-in-95 duration-100 text-xs space-y-2">
-              <div className="flex items-center justify-between pb-1.5 border-b border-slate-100">
-                <span className="font-bold text-slate-900">Ringkasan Sistem</span>
-                <button
-                  type="button"
-                  onClick={() => setNotificationOpen(false)}
-                  className="text-slate-400 hover:text-slate-700"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="space-y-1.5 text-[11px]">
-                <div className="p-2 rounded-xl bg-blue-50 text-blue-950 font-medium">
-                  <strong>{letters.length}</strong> Surat Penawaran tersimpan
-                </div>
-                <div className="p-2 rounded-xl bg-emerald-50 text-emerald-950 font-medium">
-                  <strong>{basts.length}</strong> Dokumen BAST terdaftar
-                </div>
-                <div className="p-2 rounded-xl bg-sky-50 text-sky-950 font-medium">
-                  <strong>{invoices.length}</strong> Invoice diterbitkan
-                </div>
-              </div>
-            </div>
-          )}
-          </div>
         </div>
       </header>
 
