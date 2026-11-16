@@ -48,6 +48,7 @@ import {
   subscribeInvoices,
 } from './services/cloudSync.ts';
 import { BottomNav } from './components/BottomNav.tsx';
+import { PWAUpdatePrompt } from './components/PWAUpdatePrompt.tsx';
 import { CheckCircle2 } from 'lucide-react';
 
 export type NavTab = 'tambah' | 'rekap' | 'pelanggan' | 'pengaturan';
@@ -756,6 +757,9 @@ export default function App() {
           <span className="flex-1 leading-snug">{toast}</span>
         </div>
       )}
+
+      {/* 7. POP-UP NOTIFIKASI UPDATE APLIKASI (PWA) */}
+      <PWAUpdatePrompt />
     </div>
   );
 }

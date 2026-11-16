@@ -10,7 +10,7 @@ export default defineConfig(() => {
       react(),
       tailwindcss(),
       VitePWA({
-        registerType: 'autoUpdate',
+        registerType: 'prompt',
         includeAssets: ['favicon.png', 'favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'manifest.json'],
         manifest: {
           id: '/',
@@ -47,6 +47,7 @@ export default defineConfig(() => {
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024, // 6 MiB to cache full offline bundle
+          cleanupOutdatedCaches: true,
         },
         devOptions: {
           enabled: true,
