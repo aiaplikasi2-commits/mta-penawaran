@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Plus,
   Trash2,
@@ -95,6 +95,11 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
   const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
 
   const INVOICE_DRAFT_KEY = 'MTA_INVOICE_DRAFT';
+  const justSavedRef = useRef(false);
+  const latestDraftRef = useRef<{ hasData: boolean; getObj: () => InvoiceData }>({
+    hasData: false,
+    getObj: () => ({} as InvoiceData),
+  });
 
   useEffect(() => {
     getAllPurchaseOrders().then((list) => {
@@ -141,15 +146,21 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
     }
   }, [initialInvoice]);
 
-  // Debounced auto-save typing to draft
-  useEffect(() => {
-    const hasData =
-      companyName.trim() ||
+  const hasDraftContent = Boolean(
+    companyName.trim() ||
       nomorPo.trim() ||
       recipientName.trim() ||
-      items.some((it) => it.description?.trim());
+      items.some((it) => it.description?.trim())
+  );
 
-    if (hasData) {
+  latestDraftRef.current = {
+    hasData: hasDraftContent && !initialInvoice,
+    getObj: () => getCurrentInvoiceObject(),
+  };
+
+  // Debounced auto-save typing to draft
+  useEffect(() => {
+    if (!initialInvoice && hasDraftContent) {
       const timer = setTimeout(() => {
         try {
           const current = getCurrentInvoiceObject();
@@ -161,6 +172,8 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
       return () => clearTimeout(timer);
     }
   }, [
+    initialInvoice,
+    hasDraftContent,
     invoiceNumber,
     invoiceDate,
     nomorPo,
@@ -176,13 +189,31 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
     bankAccountNumber,
   ]);
 
+  // Flush draft immediately when navigating away via BottomNav/Sidebar/Back or tab hide
+  useEffect(() => {
+    const flushDraft = () => {
+      if (!justSavedRef.current && latestDraftRef.current.hasData) {
+        try {
+          localStorage.setItem(INVOICE_DRAFT_KEY, JSON.stringify(latestDraftRef.current.getObj()));
+        } catch (e) {
+          console.warn('Draft invoice flush error', e);
+        }
+      }
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') flushDraft();
+    };
+    window.addEventListener('beforeunload', flushDraft);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.removeEventListener('beforeunload', flushDraft);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      flushDraft();
+    };
+  }, []);
+
   const handleBackWithDraft = () => {
-    const hasData =
-      companyName.trim() ||
-      nomorPo.trim() ||
-      recipientName.trim() ||
-      items.some((it) => it.description?.trim());
-    if (hasData) {
+    if (!initialInvoice && hasDraftContent) {
       try {
         localStorage.setItem(INVOICE_DRAFT_KEY, JSON.stringify(getCurrentInvoiceObject()));
         onToast('Tersimpan sebagai draft Invoice');
@@ -195,6 +226,7 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
 
   const handleClearDraft = () => {
     localStorage.removeItem(INVOICE_DRAFT_KEY);
+    latestDraftRef.current.hasData = false;
     setHasRestoredDraft(false);
     setNomorPo('');
     setCompanyName('');
@@ -378,10 +410,12 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
     try {
       setIsSaving(true);
       const toSave = getCurrentInvoiceObject();
+      justSavedRef.current = true;
       await onSave(toSave);
       localStorage.removeItem(INVOICE_DRAFT_KEY);
       onToast(`Invoice ${toSave.invoiceNumber} disimpan`);
     } catch {
+      justSavedRef.current = false;
       onToast('Gagal menyimpan invoice');
     } finally {
       setIsSaving(false);

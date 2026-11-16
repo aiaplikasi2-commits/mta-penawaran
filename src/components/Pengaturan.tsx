@@ -211,9 +211,6 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                 <Settings className="w-5 h-5 text-blue-600" />
                 <span>Pengaturan Tunggal Perusahaan MTA</span>
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Satu sumber data terintegrasi aplikasi Adm MTA (Penawaran, BAST, Invoice &amp; Slip Gaji)
-              </p>
             </div>
 
             <button
@@ -270,9 +267,6 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                     </button>
                   ) : null}
                 </div>
-                <p className="text-[10.5px] text-slate-500 leading-tight">
-                  <strong className="text-blue-700">Khusus Slip Gaji:</strong> Hanya logo murni tanpa alamat / KOP surat.
-                </p>
 
                 {/* Preview Box */}
                 <div className="mt-2.5 p-3 rounded-xl border border-slate-200 bg-slate-50/80 h-28 flex items-center justify-center">
@@ -426,9 +420,6 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                     </button>
                   ) : null}
                 </div>
-                <p className="text-[10.5px] text-slate-500 leading-tight">
-                  <strong className="text-emerald-700">Tanda Tangan &amp; Stempel:</strong> Digunakan di Surat Penawaran &amp; Slip Gaji.
-                </p>
 
                 {/* Preview Box */}
                 <div className="mt-2.5 p-3 rounded-xl border border-slate-200 bg-slate-50/80 h-28 flex items-center justify-center">
@@ -737,9 +728,6 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
           <DownloadCloud className="w-5 h-5 text-sky-400" />
           <div>
             <h3 className="font-bold text-sm text-white">Backup &amp; Restore Data Terintegrasi</h3>
-            <p className="text-[11px] text-sky-200">
-              Simpan cadangan seluruh identitas perusahaan, Logo, KOP, TTD/Stempel, Surat Penawaran, dan Pelanggan ke 1 file JSON
-            </p>
           </div>
         </div>
 
@@ -751,9 +739,6 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                 <DownloadCloud className="w-4 h-4" />
                 <span>Backup Seluruh Data</span>
               </div>
-              <p className="text-[11px] text-slate-300 mt-1">
-                Mengunduh file JSON terintegrasi berisi seluruh data perusahaan, gambar Logo, KOP, TTD, riwayat surat, dan rekanan pelanggan.
-              </p>
             </div>
             <button
               type="button"
@@ -771,9 +756,6 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                 <UploadCloud className="w-4 h-4" />
                 <span>Restore Data dari Backup</span>
               </div>
-              <p className="text-[11px] text-slate-300 mt-1">
-                Pulihkan data dari file backup JSON sebelumnya. Data divalidasi terlebih dahulu sebelum diterapkan secara aman.
-              </p>
             </div>
             <button
               type="button"

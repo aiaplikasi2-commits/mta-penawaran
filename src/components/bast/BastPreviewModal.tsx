@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Printer,
   Download,
@@ -40,11 +40,36 @@ export const BastPreviewModal: React.FC<BastPreviewModalProps> = ({
   const [isCopied, setIsCopied] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
 
+  const pendingBastRef = useRef<BastData | null>(null);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flushPendingSave = useCallback(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+    const toSave = pendingBastRef.current;
+    if (toSave) {
+      pendingBastRef.current = null;
+      if (onUpdateBast) {
+        onUpdateBast(toSave);
+      } else {
+        saveBast(toSave).catch(() => {});
+      }
+    }
+  }, [onUpdateBast]);
+
   useEffect(() => {
-    if (bast) {
+    if (bast && (!pendingBastRef.current || bast.id !== currentBast?.id)) {
       setCurrentBast(bast);
     }
   }, [bast]);
+
+  useEffect(() => {
+    return () => {
+      flushPendingSave();
+    };
+  }, [flushPendingSave]);
 
   if (!isOpen || !currentBast) return null;
 
@@ -55,11 +80,18 @@ export const BastPreviewModal: React.FC<BastPreviewModalProps> = ({
       updatedAt: new Date().toISOString(),
     };
     setCurrentBast(updated);
-    if (onUpdateBast) {
-      onUpdateBast(updated);
-    } else {
-      saveBast(updated).catch(() => {});
+    pendingBastRef.current = updated;
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
     }
+    debounceTimerRef.current = setTimeout(() => {
+      flushPendingSave();
+    }, 400);
+  };
+
+  const handleClose = () => {
+    flushPendingSave();
+    onClose();
   };
 
   const pdfFileName = `${currentBast.nomorBast.replace(/[/\\?%*:|"<>]/g, '_')}_${(currentBast.pihakPertamaPerusahaan || 'BAST').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
@@ -127,6 +159,7 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
 
   const handleDownloadPDF = async () => {
     try {
+      flushPendingSave();
       setIsDownloading(true);
       await downloadBastPDF(currentBast, settings);
       onToast(`File ${pdfFileName} berhasil diunduh!`);
@@ -138,6 +171,7 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
   };
 
   const handlePrint = () => {
+    flushPendingSave();
     window.print();
   };
 
@@ -179,6 +213,7 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
               <button
                 type="button"
                 onClick={() => {
+                  flushPendingSave();
                   onEdit(currentBast);
                   onClose();
                 }}
@@ -195,6 +230,11 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
                 type="button"
                 onClick={() => {
                   if (confirm(`Hapus dokumen ${currentBast.nomorBast}?`)) {
+                    pendingBastRef.current = null;
+                    if (debounceTimerRef.current) {
+                      clearTimeout(debounceTimerRef.current);
+                      debounceTimerRef.current = null;
+                    }
                     onDelete(currentBast.id);
                     onClose();
                   }
@@ -227,7 +267,7 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
             </button>
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="p-1.5 text-slate-300 hover:text-white hover:bg-slate-800 rounded-xl transition"
             >
               <X className="w-5 h-5" />
@@ -441,7 +481,7 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
           </span>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl transition active:scale-95 border border-slate-200"
           >
             Tutup

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   FileText,
   Plus,
@@ -100,6 +100,11 @@ export const FormBast: React.FC<FormBastProps> = ({
   const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
 
   const BAST_DRAFT_KEY = 'MTA_BAST_DRAFT';
+  const justSavedRef = useRef(false);
+  const latestDraftRef = useRef<{ hasData: boolean; getObj: () => BastData }>({
+    hasData: false,
+    getObj: () => ({} as BastData),
+  });
 
   useEffect(() => {
     getAllPurchaseOrders().then((list) => {
@@ -147,15 +152,21 @@ export const FormBast: React.FC<FormBastProps> = ({
     }
   }, [initialBast]);
 
-  // Debounced auto-save current typing state to draft
-  useEffect(() => {
-    const hasData =
-      nomorPo.trim() ||
+  // Keep latest draft snapshot updated and debounce auto-save
+  const hasDraftContent = Boolean(
+    nomorPo.trim() ||
       pihakPertamaPerusahaan.trim() ||
       pihakPertamaNama.trim() ||
-      items.some((it) => it.name.trim());
+      items.some((it) => it.name.trim())
+  );
 
-    if (hasData) {
+  latestDraftRef.current = {
+    hasData: hasDraftContent && !initialBast,
+    getObj: () => getCurrentBastObject(),
+  };
+
+  useEffect(() => {
+    if (!initialBast && hasDraftContent) {
       const timer = setTimeout(() => {
         try {
           const current = getCurrentBastObject();
@@ -167,6 +178,8 @@ export const FormBast: React.FC<FormBastProps> = ({
       return () => clearTimeout(timer);
     }
   }, [
+    initialBast,
+    hasDraftContent,
     nomorBast,
     nomorPo,
     tanggalBast,
@@ -181,14 +194,32 @@ export const FormBast: React.FC<FormBastProps> = ({
     kota,
   ]);
 
+  // Flush draft immediately when navigating away via BottomNav/Sidebar/Back or tab hide
+  useEffect(() => {
+    const flushDraft = () => {
+      if (!justSavedRef.current && latestDraftRef.current.hasData) {
+        try {
+          localStorage.setItem(BAST_DRAFT_KEY, JSON.stringify(latestDraftRef.current.getObj()));
+        } catch (e) {
+          console.warn('Draft flush error', e);
+        }
+      }
+    };
+    const handleVisibility = () => {
+      if (document.visibilityState === 'hidden') flushDraft();
+    };
+    window.addEventListener('beforeunload', flushDraft);
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      window.removeEventListener('beforeunload', flushDraft);
+      document.removeEventListener('visibilitychange', handleVisibility);
+      flushDraft();
+    };
+  }, []);
+
   // Handle Back with automatic draft save
   const handleBackWithDraft = () => {
-    const hasData =
-      nomorPo.trim() ||
-      pihakPertamaPerusahaan.trim() ||
-      pihakPertamaNama.trim() ||
-      items.some((it) => it.name.trim());
-    if (hasData) {
+    if (!initialBast && hasDraftContent) {
       try {
         localStorage.setItem(BAST_DRAFT_KEY, JSON.stringify(getCurrentBastObject()));
         onToast('Tersimpan sebagai draft BAST');
@@ -201,6 +232,7 @@ export const FormBast: React.FC<FormBastProps> = ({
 
   const handleClearDraft = () => {
     localStorage.removeItem(BAST_DRAFT_KEY);
+    latestDraftRef.current.hasData = false;
     setHasRestoredDraft(false);
     setNomorPo('');
     setPihakPertamaNama('');
@@ -386,10 +418,12 @@ export const FormBast: React.FC<FormBastProps> = ({
     try {
       setIsSaving(true);
       const toSave = getCurrentBastObject();
+      justSavedRef.current = true;
       await onSave(toSave);
       localStorage.removeItem(BAST_DRAFT_KEY);
       onToast(`Dokumen ${toSave.nomorBast} berhasil disimpan!`);
     } catch {
+      justSavedRef.current = false;
       onToast('Gagal menyimpan dokumen BAST');
     } finally {
       setIsSaving(false);

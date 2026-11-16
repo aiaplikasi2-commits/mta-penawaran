@@ -146,6 +146,22 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
     );
   }
 
+  const handleInlineUpdateBast = async (updated: BastData) => {
+    setPreviewBast(updated);
+    setBasts((prev) => {
+      const exists = prev.some((b) => b.id === updated.id);
+      return exists ? prev.map((b) => (b.id === updated.id ? updated : b)) : prev;
+    });
+    if (editingBast?.id === updated.id) {
+      setEditingBast(updated);
+    }
+    try {
+      await saveBast(updated);
+    } catch (err) {
+      console.warn('Inline BAST save warning:', err);
+    }
+  };
+
   return (
     <div className="w-full">
       {activeView === 'daftar' && (
@@ -190,7 +206,7 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
             setPreviewBast(null);
             handleEdit(b);
           }}
-          onUpdateBast={handleSaveBast}
+          onUpdateBast={handleInlineUpdateBast}
           onToast={onToast}
         />
       )}
