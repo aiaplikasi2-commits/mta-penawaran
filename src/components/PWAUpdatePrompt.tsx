@@ -1,13 +1,17 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { Download, RefreshCw, ShieldCheck, X } from 'lucide-react';
 
-const UPDATE_CHECK_INTERVAL_MS = 3 * 60 * 1000; // Cek update tiap 3 menit
-const MIN_MANUAL_CHECK_GAP_MS = 30 * 1000; // Batasi cek saat fokus/online minimal jeda 30 detik
+const UPDATE_CHECK_INTERVAL_MS = 60 * 1000; // Cek update tiap 1 menit
+const MIN_MANUAL_CHECK_GAP_MS = 15 * 1000; // Batasi cek saat fokus/online minimal jeda 15 detik
 
 export const PWAUpdatePrompt: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState(false);
+  const [serverHasUpdate, setServerHasUpdate] = useState(false);
   const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
+  const initialVersionRef = useRef<string | null>(null);
+  const latestServerVersionRef = useRef<string | null>(null);
+  const dismissedVersionRef = useRef<string | null>(null);
   const lastCheckAtRef = useRef<number>(0);
 
   const {
@@ -17,6 +21,10 @@ export const PWAUpdatePrompt: React.FC = () => {
     onRegisteredSW(_swUrl, registration) {
       if (registration) {
         registrationRef.current = registration;
+        // Jika sudah ada SW waiting saat pertama kali dimuat, tampilkan pop-up
+        if (registration.waiting) {
+          setNeedRefresh(true);
+        }
       }
     },
     onRegisterError(error) {
@@ -24,23 +32,62 @@ export const PWAUpdatePrompt: React.FC = () => {
     },
   });
 
-  useEffect(() => {
-    const checkForUpdate = async (force = false) => {
-      const reg = registrationRef.current;
-      if (!reg || (typeof navigator !== 'undefined' && !navigator.onLine)) return;
+  const checkForUpdate = useCallback(async (force = false) => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) return;
 
-      const now = Date.now();
-      if (!force && now - lastCheckAtRef.current < MIN_MANUAL_CHECK_GAP_MS) {
+    const now = Date.now();
+    if (!force && now - lastCheckAtRef.current < MIN_MANUAL_CHECK_GAP_MS) {
+      return;
+    }
+    lastCheckAtRef.current = now;
+
+    // 1. Cek pembaruan Service Worker (jika aktif)
+    try {
+      const reg =
+        registrationRef.current ||
+        ('serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : undefined);
+      if (reg) {
+        registrationRef.current = reg;
+        await reg.update();
+        if (reg.waiting) {
+          setNeedRefresh(true);
+        }
+      }
+    } catch {
+      // Abaikan error sementara saat cek SW
+    }
+
+    // 2. Cek versi server secara langsung (/api/app-version) agar deteksi juga bekerja di mode dev maupun saat SW belum terpicu
+    try {
+      const res = await fetch(`/api/app-version?_t=${Date.now()}`, {
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache' },
+      });
+      if (!res.ok) return;
+      const data = (await res.json()) as { version?: string };
+      if (!data?.version) return;
+
+      if (!initialVersionRef.current) {
+        initialVersionRef.current = data.version;
+        latestServerVersionRef.current = data.version;
         return;
       }
 
-      lastCheckAtRef.current = now;
-      try {
-        await reg.update();
-      } catch {
-        // Abaikan error jaringan sementara saat pengecekan latar belakang
+      latestServerVersionRef.current = data.version;
+      if (
+        data.version !== initialVersionRef.current &&
+        dismissedVersionRef.current !== data.version
+      ) {
+        setServerHasUpdate(true);
       }
-    };
+    } catch {
+      // Abaikan error jaringan sementara saat pengecekan latar belakang
+    }
+  }, [setNeedRefresh]);
+
+  useEffect(() => {
+    // Ambil versi awal segera saat aplikasi dibuka
+    void checkForUpdate(true);
 
     const intervalId = window.setInterval(() => {
       void checkForUpdate(true);
@@ -66,9 +113,11 @@ export const PWAUpdatePrompt: React.FC = () => {
       window.removeEventListener('focus', handleFocusOrOnline);
       window.removeEventListener('online', handleFocusOrOnline);
     };
-  }, []);
+  }, [checkForUpdate]);
 
-  if (!needRefresh) {
+  const showPrompt = needRefresh || serverHasUpdate;
+
+  if (!showPrompt) {
     return null;
   }
 
@@ -76,23 +125,56 @@ export const PWAUpdatePrompt: React.FC = () => {
     if (isUpdating) return;
     setIsUpdating(true);
 
-    // Pengaman reload jika browser tidak otomatis memicu controllerchange
-    const fallbackReloadTimer = window.setTimeout(() => {
+    const forceCleanReload = async () => {
+      try {
+        // Bersihkan hanya HTTP asset cache milik workbox/PWA (tidak menyentuh IndexedDB / localStorage)
+        if ('caches' in window) {
+          const keys = await window.caches.keys();
+          await Promise.all(
+            keys
+              .filter((k) => k.includes('workbox') || k.includes('precache') || k.includes('vite-pwa'))
+              .map((k) => window.caches.delete(k))
+          );
+        }
+      } catch {
+        // Abaikan jika browser membatasi cache API
+      }
       window.location.reload();
-    }, 2500);
+    };
+
+    const fallbackReloadTimer = window.setTimeout(() => {
+      void forceCleanReload();
+    }, 2200);
 
     try {
-      await updateServiceWorker(true);
+      if (needRefresh) {
+        await updateServiceWorker(true);
+      }
+
+      const reg =
+        registrationRef.current ||
+        ('serviceWorker' in navigator ? await navigator.serviceWorker.getRegistration() : undefined);
+
+      if (reg?.waiting) {
+        reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+      } else {
+        window.clearTimeout(fallbackReloadTimer);
+        await forceCleanReload();
+      }
     } catch (err) {
       console.error('Gagal menginstall update:', err);
       window.clearTimeout(fallbackReloadTimer);
-      window.location.reload();
+      await forceCleanReload();
     }
   };
 
   const handleDismiss = () => {
     if (isUpdating) return;
     setNeedRefresh(false);
+    setServerHasUpdate(false);
+    if (latestServerVersionRef.current) {
+      dismissedVersionRef.current = latestServerVersionRef.current;
+    }
   };
 
   return (

@@ -1,6 +1,8 @@
 import express from 'express';
 import http from 'http';
 import path from 'path';
+import fs from 'fs';
+import crypto from 'crypto';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import { GoogleGenAI, ThinkingLevel } from '@google/genai';
@@ -14,6 +16,78 @@ const app = express();
 const PORT = Number(process.env.PORT) || 3000;
 
 app.use(express.json({ limit: '25mb' }));
+
+const SERVER_BOOT_ID = Date.now().toString(36);
+let cachedDevVersion: { value: string; checkedAt: number } | null = null;
+let cachedProdVersion: string | null = null;
+
+function getLatestSrcMtime(dirPath: string): number {
+  let latest = 0;
+  try {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name === 'node_modules' || entry.name === 'dist' || entry.name === 'dev-dist') continue;
+        const subLatest = getLatestSrcMtime(fullPath);
+        if (subLatest > latest) latest = subLatest;
+      } else {
+        const stat = fs.statSync(fullPath);
+        if (stat.mtimeMs > latest) latest = stat.mtimeMs;
+      }
+    }
+  } catch {
+    // Ignore read errors
+  }
+  return latest;
+}
+
+function getAppVersion(): string {
+  const isProd = process.env.NODE_ENV === 'production';
+  if (isProd) {
+    if (cachedProdVersion) return cachedProdVersion;
+    try {
+      const hash = crypto.createHash('sha1');
+      const distIndex = path.resolve(__dirname, 'dist', 'index.html');
+      const distSw = path.resolve(__dirname, 'dist', 'sw.js');
+      if (fs.existsSync(distIndex)) hash.update(fs.readFileSync(distIndex));
+      if (fs.existsSync(distSw)) hash.update(fs.readFileSync(distSw));
+      cachedProdVersion = hash.digest('hex').slice(0, 12);
+      return cachedProdVersion;
+    } catch {
+      cachedProdVersion = SERVER_BOOT_ID;
+      return cachedProdVersion;
+    }
+  }
+
+  const now = Date.now();
+  if (cachedDevVersion && now - cachedDevVersion.checkedAt < 10_000) {
+    return cachedDevVersion.value;
+  }
+
+  let latestMtime = getLatestSrcMtime(path.resolve(__dirname, 'src'));
+  try {
+    const indexStat = fs.statSync(path.resolve(__dirname, 'index.html'));
+    if (indexStat.mtimeMs > latestMtime) latestMtime = indexStat.mtimeMs;
+  } catch {
+    // Ignore
+  }
+
+  const versionValue = `${SERVER_BOOT_ID}-${Math.floor(latestMtime)}`;
+  cachedDevVersion = { value: versionValue, checkedAt: now };
+  return versionValue;
+}
+
+// App version check endpoint (never cached) for reliable mobile PWA update detection
+app.get('/api/app-version', (req, res) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  res.json({
+    version: getAppVersion(),
+    mode: process.env.NODE_ENV === 'production' ? 'production' : 'development',
+  });
+});
 
 // Health and AI status check endpoint
 app.get('/api/ai-status', (req, res) => {
@@ -586,6 +660,25 @@ ATURAN KOMUNIKASI:
 async function startServer() {
   const httpServer = http.createServer(app);
 
+  // Prevent browser/CDN caching of Service Worker scripts and HTML entry point
+  app.use((req, res, next) => {
+    const reqPath = req.path;
+    if (
+      reqPath === '/' ||
+      reqPath === '/index.html' ||
+      reqPath === '/sw.js' ||
+      reqPath === '/dev-sw.js' ||
+      reqPath === '/registerSW.js' ||
+      reqPath === '/manifest.webmanifest' ||
+      reqPath === '/manifest.json'
+    ) {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+    next();
+  });
+
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
@@ -598,8 +691,28 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.resolve(__dirname, 'dist');
-    app.use(express.static(distPath));
+    app.use(
+      express.static(distPath, {
+        setHeaders: (res, filePath) => {
+          const base = path.basename(filePath);
+          if (
+            base === 'index.html' ||
+            base === 'sw.js' ||
+            base === 'registerSW.js' ||
+            base === 'manifest.webmanifest' ||
+            base === 'manifest.json'
+          ) {
+            res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+            res.setHeader('Pragma', 'no-cache');
+            res.setHeader('Expires', '0');
+          }
+        },
+      })
+    );
     app.get('*', (req, res) => {
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
       res.sendFile(path.resolve(distPath, 'index.html'));
     });
   }
