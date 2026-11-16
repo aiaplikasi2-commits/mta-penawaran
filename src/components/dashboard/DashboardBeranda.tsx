@@ -11,7 +11,6 @@ import {
   Settings,
   Users,
   Package,
-  Coffee,
   CheckCircle2,
 } from 'lucide-react';
 import type { CompanySettings, LetterData, Customer } from '../../types/index.ts';
@@ -29,7 +28,6 @@ interface DashboardBerandaProps {
   onOpenPengaturan: () => void;
   onOpenClientData: () => void;
   onOpenPoTracker: () => void;
-  onOpenCoffee: () => void;
   onOpenSidebar?: () => void;
   onToast?: (msg: string) => void;
 }
@@ -44,7 +42,6 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
   onOpenPengaturan,
   onOpenClientData,
   onOpenPoTracker,
-  onOpenCoffee,
   onOpenSidebar,
   onToast,
 }) => {
@@ -179,9 +176,6 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
                 <h2 className="font-extrabold text-xs sm:text-[13px] text-slate-900 leading-tight">
                   Surat Penawaran
                 </h2>
-                <p className="text-[10px] text-slate-500 leading-tight mt-0.5 line-clamp-2">
-                  Buat dan kelola penawaran proyek
-                </p>
               </div>
             </div>
 
@@ -208,9 +202,6 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
                 <h2 className="font-extrabold text-xs sm:text-[13px] text-slate-900 leading-tight">
                   Invoice
                 </h2>
-                <p className="text-[10px] text-slate-500 leading-tight mt-0.5 line-clamp-2">
-                  Kelola faktur, tagihan dan pembayaran
-                </p>
               </div>
             </div>
 
@@ -237,9 +228,6 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
                 <h2 className="font-extrabold text-xs sm:text-[13px] text-slate-900 leading-tight">
                   BAST
                 </h2>
-                <p className="text-[10px] text-slate-500 leading-tight mt-0.5 line-clamp-2">
-                  Berita acara serah terima
-                </p>
               </div>
             </div>
 
@@ -266,9 +254,6 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
                 <h2 className="font-extrabold text-xs sm:text-[13px] text-slate-900 leading-tight">
                   Slip Gaji
                 </h2>
-                <p className="text-[10px] text-slate-500 leading-tight mt-0.5 line-clamp-2">
-                  Unduh dan lihat detail gaji bulanan
-                </p>
               </div>
             </div>
 
@@ -300,9 +285,6 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
                     AI
                   </span>
                 </div>
-                <p className="text-[10px] text-slate-500 leading-tight mt-0.5 line-clamp-2">
-                  Ekstraksi AI &amp; kelola pesanan
-                </p>
               </div>
             </div>
 
@@ -329,9 +311,6 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
                 <h2 className="font-extrabold text-xs sm:text-[13px] text-slate-900 leading-tight">
                   Pengaturan
                 </h2>
-                <p className="text-[10px] text-slate-500 leading-tight mt-0.5 line-clamp-2">
-                  Atur aplikasi sesuai kebutuhan
-                </p>
               </div>
             </div>
 
@@ -491,20 +470,6 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
               </div>
             </div>
 
-            {/* Traktir Kopi Button */}
-            <div className="pt-2 border-t border-blue-900">
-              <button
-                type="button"
-                onClick={() => {
-                  setDrawerOpen(false);
-                  onOpenCoffee();
-                }}
-                className="w-full flex items-center justify-center gap-1.5 py-2 bg-gradient-to-r from-amber-500 to-orange-400 text-slate-950 font-bold text-xs rounded-xl shadow-xs"
-              >
-                <Coffee className="w-4 h-4" />
-                <span>Bagi Kopi Pengembang</span>
-              </button>
-            </div>
           </div>
         </div>
       )}

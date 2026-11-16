@@ -32,6 +32,7 @@ import { PoTrackerModal } from './components/dashboard/PoTrackerModal.tsx';
 import { UploadPoModule } from './components/po/UploadPoModule.tsx';
 import type { BastData } from './types/bast.ts';
 import type { InvoiceData, InvoiceItem } from './types/invoice.ts';
+import type { PurchaseOrderData } from './types/po.ts';
 import { getAllBasts } from './services/bastDb.ts';
 import {
   getAllInvoices,
@@ -343,6 +344,83 @@ export default function App() {
     [invoices.length, settings, handleModeChange, showToast]
   );
 
+  // Convert Purchase Order (Upload PO) directly to Invoice
+  const handleConvertPoToInvoice = useCallback(
+    (po: PurchaseOrderData) => {
+      const nextSeq = invoices.length + 1;
+      const invNumber = generateNomorInvoiceBaru(nextSeq);
+      const today = new Date().toISOString().slice(0, 10);
+
+      const mappedItems: InvoiceItem[] = (po.items || []).map((it, idx) => {
+        const name = (it.itemName || '').trim();
+        const spec = (it.itemSpec || '').trim();
+        const description =
+          spec && name && !name.toLowerCase().includes(spec.toLowerCase())
+            ? `${name} ${spec}`
+            : name || spec;
+        const qty = Number(it.qty) || 1;
+        const price = Number(it.unitPrice) || 0;
+        const total = Number(it.totalPrice) || Math.round(qty * price);
+        return {
+          id: `inv-po-item-${Date.now()}-${idx}`,
+          description,
+          qty,
+          satuan: it.satuan || 'unit',
+          price,
+          total,
+        };
+      });
+
+      const subtotal = mappedItems.reduce((acc, it) => acc + (it.total || 0), 0);
+      const total = Math.max(0, subtotal);
+
+      const converted: InvoiceData = {
+        id: `inv-${Date.now()}`,
+        invoiceNumber: invNumber,
+        invoiceDate: today,
+        nomorPo: po.nomorPo || '',
+        companyName: po.buyerCompany || '',
+        recipientName: po.picName || '',
+        address: po.buyerAddress || po.deliveryAddress || '',
+        items:
+          mappedItems.length > 0
+            ? mappedItems
+            : [
+                {
+                  id: `inv-po-item-${Date.now()}-1`,
+                  description: '',
+                  qty: 1,
+                  satuan: 'unit',
+                  price: 0,
+                  total: 0,
+                },
+              ],
+        tradeInActive: false,
+        tradeInName: 'Trade In Barang Bekas',
+        tradeInValue: 0,
+        discountActive: false,
+        discountValue: 0,
+        ppnActive: false,
+        ppnPercent: 11,
+        subtotal,
+        total,
+        terbilang: angkaKeTerbilang(total),
+        bankName: settings.bankName || 'Mandiri',
+        bankAccountName: settings.bankAccountName || 'CV. MULIA TEKHNIK ABADI',
+        bankAccountNumber: settings.bankAccountNumber || '167-00-0529426-8',
+        signatoryName: settings.signatoryName || 'MUHAMAD RIDHO',
+        status: 'Belum Lunas',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      setPreloadedInvoice(converted);
+      handleModeChange('invoice');
+      showToast(`Data PO ${po.nomorPo || ''} berhasil ditarik ke Invoice!`);
+    },
+    [invoices.length, settings, handleModeChange, showToast]
+  );
+
   // Customer handlers
   const handleSaveCustomer = async (cust: Customer) => {
     await saveCustomer(cust);
@@ -451,11 +529,6 @@ export default function App() {
             onOpenPoTracker={() => {
               setIsPoModalOpen(true);
             }}
-            onOpenCoffee={() => {
-              const gopay = '08179015181';
-              navigator.clipboard?.writeText(gopay);
-              showToast('Nomor GoPay 08179015181 disalin!');
-            }}
             onOpenSidebar={() => setIsSidebarOpen(true)}
           />
         ) : appMode === 'bast' ? (
@@ -487,10 +560,7 @@ export default function App() {
           /* MODE: UPLOAD PO DENGAN AI OCR & DOKUMEN */
           <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4">
             <UploadPoModule
-              onNavigateToInvoice={(po) => {
-                handleModeChange('invoice');
-                showToast(`Membuka form Invoice untuk PO ${po.nomorPo}`);
-              }}
+              onNavigateToInvoice={handleConvertPoToInvoice}
               onNavigateToBast={(po) => {
                 handleModeChange('bast');
                 showToast(`Membuka form BAST untuk PO ${po.nomorPo}`);
@@ -624,11 +694,6 @@ export default function App() {
           if (tab) handleTabChange(tab as NavTab);
         }}
         onOpenPoTracker={() => setIsPoModalOpen(true)}
-        onOpenCoffee={() => {
-          const gopay = '08179015181';
-          navigator.clipboard?.writeText(gopay);
-          showToast('Nomor GoPay 08179015181 disalin!');
-        }}
       />
 
       {/* 3B. PO TRACKER MODAL */}

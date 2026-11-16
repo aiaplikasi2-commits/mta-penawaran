@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import type { InvoiceData } from '../../types/invoice.ts';
 import type { CompanySettings, LetterData } from '../../types/index.ts';
+import type { PurchaseOrderData } from '../../types/po.ts';
 import { formatInvoiceDate, downloadInvoicePDF, downloadRekapInvoicePDF } from '../../services/invoicePdfGenerator.ts';
 import { formatNumberIndo } from '../../services/pdfGenerator.ts';
 
@@ -21,6 +22,7 @@ interface DaftarInvoiceProps {
   invoices: InvoiceData[];
   settings: CompanySettings;
   letters?: LetterData[];
+  purchaseOrders?: PurchaseOrderData[];
   onCreateNew: () => void;
   onEdit: (invoice: InvoiceData) => void;
   onDuplicate: (invoice: InvoiceData) => void;
@@ -28,6 +30,7 @@ interface DaftarInvoiceProps {
   onShare: (invoice: InvoiceData) => void;
   onDelete: (id: string) => Promise<void>;
   onSelectLetter?: (letter: LetterData) => void;
+  onSelectPo?: (po: PurchaseOrderData) => void;
   onToast: (msg: string) => void;
 }
 
@@ -37,6 +40,7 @@ export const DaftarInvoice: React.FC<DaftarInvoiceProps> = ({
   invoices,
   settings,
   letters = [],
+  purchaseOrders = [],
   onCreateNew,
   onEdit,
   onDuplicate,
@@ -44,6 +48,7 @@ export const DaftarInvoice: React.FC<DaftarInvoiceProps> = ({
   onShare,
   onDelete,
   onSelectLetter,
+  onSelectPo,
   onToast,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -51,6 +56,8 @@ export const DaftarInvoice: React.FC<DaftarInvoiceProps> = ({
   const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(null);
   const [showLetterPicker, setShowLetterPicker] = useState(false);
   const [letterPickerSearch, setLetterPickerSearch] = useState('');
+  const [showPoPicker, setShowPoPicker] = useState(false);
+  const [poPickerSearch, setPoPickerSearch] = useState('');
 
   const now = new Date();
   const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -107,6 +114,24 @@ export const DaftarInvoice: React.FC<DaftarInvoiceProps> = ({
         </h2>
 
         <div className="flex items-center gap-1.5 flex-wrap">
+          {onSelectPo && (
+            <button
+              type="button"
+              onClick={() => {
+                if (!purchaseOrders || purchaseOrders.length === 0) {
+                  onToast('Belum ada data Upload PO yang tersimpan');
+                  return;
+                }
+                setShowPoPicker(true);
+              }}
+              className="flex items-center gap-1 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white font-bold text-xs rounded-xl shadow-xs transition"
+              title="Tarik data & tabel item dari Upload PO"
+            >
+              <Receipt className="w-3.5 h-3.5 text-emerald-100" />
+              <span>Ambil dari PO</span>
+            </button>
+          )}
+
           {onSelectLetter && (
             <button
               type="button"
@@ -384,6 +409,71 @@ export const DaftarInvoice: React.FC<DaftarInvoiceProps> = ({
                     </div>
                     <span className="text-[11px] font-bold text-blue-700 bg-blue-100 group-hover:bg-blue-600 group-hover:text-white px-2.5 py-1 rounded-lg shrink-0 transition">
                       Pilih
+                    </span>
+                  </button>
+                ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL PICK PURCHASE ORDER */}
+      {showPoPicker && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 backdrop-blur-xs flex items-center justify-center p-3">
+          <div className="w-full max-w-lg bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 animate-in fade-in zoom-in-95">
+            <div className="bg-emerald-800 text-white p-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Receipt className="w-4 h-4 text-emerald-200" />
+                <h3 className="font-bold text-sm">Pilih Purchase Order (PO) untuk Invoice</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPoPicker(false)}
+                className="p-1 rounded-lg hover:bg-white/10 text-emerald-100 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-3 border-b border-slate-100">
+              <input
+                type="text"
+                value={poPickerSearch}
+                onChange={(e) => setPoPickerSearch(e.target.value)}
+                placeholder="Cari nomor PO, nama perusahaan..."
+                className="w-full px-3 py-2 text-xs rounded-xl border border-slate-200 bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-emerald-600"
+              />
+            </div>
+            <div className="max-h-80 overflow-y-auto p-2 space-y-1.5">
+              {(purchaseOrders || [])
+                .filter((po) => {
+                  const q = poPickerSearch.toLowerCase();
+                  return (
+                    !q ||
+                    (po.nomorPo || '').toLowerCase().includes(q) ||
+                    (po.buyerCompany || '').toLowerCase().includes(q)
+                  );
+                })
+                .map((po) => (
+                  <button
+                    key={po.id}
+                    type="button"
+                    onClick={() => {
+                      setShowPoPicker(false);
+                      onSelectPo?.(po);
+                    }}
+                    className="w-full text-left p-2.5 rounded-xl hover:bg-emerald-50 transition flex items-center justify-between gap-2 border border-slate-100 group"
+                  >
+                    <div className="min-w-0">
+                      <p className="font-bold text-xs text-slate-900 group-hover:text-emerald-900 font-mono">
+                        {po.nomorPo || '(Tanpa Nomor PO)'}
+                      </p>
+                      <p className="text-[11px] text-slate-600 truncate">{po.buyerCompany}</p>
+                      <p className="text-[10px] text-slate-400">
+                        {po.items?.length || 0} item • Rp {formatNumberIndo(po.grandTotal || 0)}
+                      </p>
+                    </div>
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-100 group-hover:bg-emerald-600 group-hover:text-white px-2.5 py-1 rounded-lg shrink-0 transition">
+                      Tarik Data
                     </span>
                   </button>
                 ))}

@@ -12,6 +12,7 @@ import {
   CheckSquare,
   Sparkles,
   Info,
+  Receipt,
 } from 'lucide-react';
 import type { PurchaseOrderData, PoItem } from '../../types/po.ts';
 import { PoItemsTable } from './PoItemsTable.tsx';
@@ -20,6 +21,7 @@ import { checkDuplicatePo } from '../../services/poDb.ts';
 interface PoVerificationFormProps {
   initialData: PurchaseOrderData;
   onSave: (data: PurchaseOrderData) => Promise<void>;
+  onCreateInvoice?: (data: PurchaseOrderData) => Promise<void> | void;
   onReExtract: () => void;
   onCancel: () => void;
 }
@@ -27,6 +29,7 @@ interface PoVerificationFormProps {
 export const PoVerificationForm: React.FC<PoVerificationFormProps> = ({
   initialData,
   onSave,
+  onCreateInvoice,
   onReExtract,
   onCancel,
 }) => {
@@ -151,6 +154,32 @@ export const PoVerificationForm: React.FC<PoVerificationFormProps> = ({
       });
     } catch (err: any) {
       alert(`Gagal menyimpan PO: ${err.message || 'Terjadi kesalahan sistem'}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveAndInvoice = async () => {
+    if (!formData.nomorPo.trim()) {
+      alert('Nomor PO wajib diisi!');
+      return;
+    }
+    if (!formData.buyerCompany.trim()) {
+      alert('Nama Perusahaan Penerbit PO (Buyer) wajib diisi!');
+      return;
+    }
+
+    const updatedPo: PurchaseOrderData = {
+      ...formData,
+      updatedAt: new Date().toISOString(),
+    };
+
+    setIsSaving(true);
+    try {
+      await onSave(updatedPo);
+      await onCreateInvoice?.(updatedPo);
+    } catch (err: any) {
+      alert(`Gagal memproses PO ke Invoice: ${err.message || 'Terjadi kesalahan sistem'}`);
     } finally {
       setIsSaving(false);
     }
@@ -509,20 +538,34 @@ export const PoVerificationForm: React.FC<PoVerificationFormProps> = ({
           </button>
         </div>
 
-        <button
-          type="submit"
-          disabled={isSaving}
-          className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs md:text-sm font-bold shadow-md hover:shadow-lg transition active:scale-95 disabled:opacity-50"
-        >
-          {isSaving ? (
-            <span>Menyimpan ke Cloud...</span>
-          ) : (
-            <>
-              <Save className="w-4 h-4" />
-              <span>Simpan PO ke Database Cloud</span>
-            </>
+        <div className="flex flex-wrap items-center gap-2">
+          {onCreateInvoice && (
+            <button
+              type="button"
+              disabled={isSaving}
+              onClick={handleSaveAndInvoice}
+              className="inline-flex items-center gap-2 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs md:text-sm font-bold shadow-md hover:shadow-lg transition active:scale-95 disabled:opacity-50"
+            >
+              <Receipt className="w-4 h-4" />
+              <span>Simpan &amp; Buat Invoice</span>
+            </button>
           )}
-        </button>
+
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="inline-flex items-center gap-2 px-6 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs md:text-sm font-bold shadow-md hover:shadow-lg transition active:scale-95 disabled:opacity-50"
+          >
+            {isSaving ? (
+              <span>Menyimpan ke Cloud...</span>
+            ) : (
+              <>
+                <Save className="w-4 h-4" />
+                <span>Simpan PO ke Database Cloud</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
     </form>
   );

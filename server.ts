@@ -445,7 +445,7 @@ Output WAJIB berupa format JSON murni berikut tanpa pembungkus markdown:
           itemName: String(it.itemName || it.description || `Item #${idx + 1}`),
           itemSpec: String(it.itemSpec || ''),
           qty: Number(it.qty) || 1,
-          satuan: String(it.satuan || 'UNIT').toUpperCase(),
+          satuan: String(it.satuan || 'unit').trim() || 'unit',
           unitPrice: Number(it.unitPrice) || 0,
           totalPrice: Number(it.totalPrice) || (Number(it.qty) || 1) * (Number(it.unitPrice) || 0),
         }))

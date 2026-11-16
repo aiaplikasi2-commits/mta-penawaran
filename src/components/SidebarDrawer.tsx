@@ -8,7 +8,6 @@ import {
   Users,
   Settings,
   Package,
-  Coffee,
   Home,
 } from 'lucide-react';
 import type { CompanySettings } from '../types/index.ts';
@@ -20,7 +19,6 @@ interface SidebarDrawerProps {
   settings: CompanySettings;
   onNavigate: (mode: AppMode, tab?: string) => void;
   onOpenPoTracker: () => void;
-  onOpenCoffee: () => void;
 }
 
 export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
@@ -29,7 +27,6 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
   settings,
   onNavigate,
   onOpenPoTracker,
-  onOpenCoffee,
 }) => {
   if (!isOpen) return null;
 
@@ -195,20 +192,8 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
           </div>
         </div>
 
-        {/* Footer Traktir Kopi */}
         <div className="pt-3 border-t border-blue-900">
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              onOpenCoffee();
-            }}
-            className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-400 text-slate-950 font-bold text-xs shadow-md active:scale-95 transition"
-          >
-            <Coffee className="w-4 h-4 text-slate-950" />
-            <span>Dukung Pengembang (Kopi)</span>
-          </button>
-          <p className="text-[10px] text-slate-400 text-center mt-2">
+          <p className="text-[10px] text-slate-400 text-center">
             Adm MTA - CV. Mulia Tekhnik Abadi
           </p>
         </div>

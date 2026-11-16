@@ -246,23 +246,65 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
     onToast('Draft Invoice direset');
   };
 
+  const applyPoToInvoice = (po: PurchaseOrderData, overwriteExisting = true) => {
+    setNomorPo(po.nomorPo || '');
+    if (po.buyerCompany && (overwriteExisting || !companyName)) {
+      setCompanyName(po.buyerCompany);
+    }
+    if ((po.buyerAddress || po.deliveryAddress) && (overwriteExisting || !address)) {
+      setAddress(po.buyerAddress || po.deliveryAddress || '');
+    }
+    if (po.picName && (overwriteExisting || !recipientName)) {
+      setRecipientName(po.picName);
+    }
+    if (po.items && po.items.length > 0) {
+      const hasOnlyEmptyRow =
+        items.length === 1 && !(items[0]?.description || '').trim() && (items[0]?.price || 0) === 0;
+      if (overwriteExisting || hasOnlyEmptyRow) {
+        setItems(
+          po.items.map((it, idx) => {
+            const name = (it.itemName || '').trim();
+            const spec = (it.itemSpec || '').trim();
+            const description =
+              spec && name && !name.toLowerCase().includes(spec.toLowerCase())
+                ? `${name} ${spec}`
+                : name || spec;
+            const qty = Number(it.qty) || 1;
+            const price = Number(it.unitPrice) || 0;
+            return {
+              id: `inv-po-${Date.now()}-${idx}`,
+              description,
+              qty,
+              satuan: it.satuan || 'unit',
+              price,
+              total: Number(it.totalPrice) || Math.round(qty * price),
+            };
+          })
+        );
+      }
+    }
+  };
+
   const handleSelectPo = (poNum: string) => {
     setNomorPo(poNum);
     const matchedPo = savedPos.find(
       (p) => (p.nomorPo || '').toLowerCase() === poNum.trim().toLowerCase()
     );
     if (matchedPo) {
-      if (!companyName && matchedPo.buyerCompany) {
-        setCompanyName(matchedPo.buyerCompany);
-      }
-      if (!address && matchedPo.buyerAddress) {
-        setAddress(matchedPo.buyerAddress);
-      }
-      if (!recipientName && matchedPo.picName) {
-        setRecipientName(matchedPo.picName);
-      }
-      onToast(`Data PO ${matchedPo.nomorPo} dimuat`);
+      applyPoToInvoice(matchedPo, false);
+      onToast(`Data & tabel item PO ${matchedPo.nomorPo} dimuat`);
     }
+  };
+
+  const handleImportFromPoSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const poId = e.target.value;
+    if (!poId) return;
+    const matchedPo = savedPos.find((p) => p.id === poId);
+    if (matchedPo) {
+      applyPoToInvoice(matchedPo, true);
+      onToast(`Data PO ${matchedPo.nomorPo} ditarik ke Invoice`);
+    }
+    e.target.value = '';
   };
 
   // Calculations
@@ -472,7 +514,24 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
             <h4 className="font-bold text-xs">Impor Cepat</h4>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            {savedPos.length > 0 && (
+              <select
+                onChange={handleImportFromPoSelect}
+                className="w-full sm:w-auto px-2.5 py-1.5 rounded-lg bg-emerald-500/25 hover:bg-emerald-500/35 border border-emerald-300/40 text-white text-xs font-semibold focus:outline-none cursor-pointer"
+                defaultValue=""
+              >
+                <option value="" disabled className="text-slate-900">
+                  Dari Upload PO...
+                </option>
+                {savedPos.map((po) => (
+                  <option key={po.id} value={po.id} className="text-slate-900">
+                    {po.nomorPo} — {po.buyerCompany} ({po.items?.length || 0} item)
+                  </option>
+                ))}
+              </select>
+            )}
+
             {letters.length > 0 && (
               <select
                 onChange={handleImportFromLetter}

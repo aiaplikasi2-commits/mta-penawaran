@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { InvoiceData, InvoiceItem } from '../../types/invoice.ts';
 import type { CompanySettings, Customer, LetterData } from '../../types/index.ts';
+import type { PurchaseOrderData } from '../../types/po.ts';
 import {
   getAllInvoices,
   saveInvoice,
@@ -8,7 +9,8 @@ import {
   generateNomorInvoiceBaru,
   angkaKeTerbilang,
 } from '../../services/invoiceDb.ts';
-import { subscribeInvoices } from '../../services/cloudSync.ts';
+import { getAllPurchaseOrders } from '../../services/poDb.ts';
+import { subscribeInvoices, subscribePurchaseOrders } from '../../services/cloudSync.ts';
 import { DaftarInvoice } from './DaftarInvoice.tsx';
 import { FormInvoice } from './FormInvoice.tsx';
 import { InvoicePreviewModal } from './InvoicePreviewModal.tsx';
@@ -33,6 +35,7 @@ export const InvoiceModule: React.FC<InvoiceModuleProps> = ({
   onToast,
 }) => {
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderData[]>([]);
   const [activeView, setActiveView] = useState<'daftar' | 'form'>('daftar');
   const [editingInvoice, setEditingInvoice] = useState<InvoiceData | null>(null);
   const [previewInvoice, setPreviewInvoice] = useState<InvoiceData | null>(null);
@@ -59,6 +62,9 @@ export const InvoiceModule: React.FC<InvoiceModuleProps> = ({
 
   useEffect(() => {
     loadData();
+    getAllPurchaseOrders().then((list) => {
+      if (list && list.length > 0) setPurchaseOrders(list);
+    });
 
     // Subscribe to cloud real-time updates and deletions
     let isMounted = true;
@@ -68,10 +74,16 @@ export const InvoiceModule: React.FC<InvoiceModuleProps> = ({
         setIsLoading(false);
       }
     });
+    const unsubPos = subscribePurchaseOrders((newPos) => {
+      if (isMounted) {
+        setPurchaseOrders(newPos);
+      }
+    });
 
     return () => {
       isMounted = false;
       unsub();
+      unsubPos();
     };
   }, []);
 
@@ -213,6 +225,78 @@ A/N ${inv.bankAccountName || settings.bankAccountName || 'CV. MULIA TEKHNIK ABAD
     onToast(`Data dari Surat Penawaran ${letter.letterNumber} berhasil dimuat!`);
   };
 
+  const handleSelectPoForInvoice = (po: PurchaseOrderData) => {
+    const nextSeq = invoices.length + 1;
+    const invNumber = generateNomorInvoiceBaru(nextSeq);
+    const today = new Date().toISOString().slice(0, 10);
+
+    const mappedItems: InvoiceItem[] = (po.items || []).map((it, idx) => {
+      const name = (it.itemName || '').trim();
+      const spec = (it.itemSpec || '').trim();
+      const description =
+        spec && name && !name.toLowerCase().includes(spec.toLowerCase())
+          ? `${name} ${spec}`
+          : name || spec;
+      const qty = Number(it.qty) || 1;
+      const price = Number(it.unitPrice) || 0;
+      return {
+        id: `inv-po-${Date.now()}-${idx}`,
+        description,
+        qty,
+        satuan: it.satuan || 'unit',
+        price,
+        total: Number(it.totalPrice) || Math.round(qty * price),
+      };
+    });
+
+    const subtotal = mappedItems.reduce((acc, it) => acc + (it.total || 0), 0);
+    const total = Math.max(0, subtotal);
+
+    const converted: InvoiceData = {
+      id: `inv-${Date.now()}`,
+      invoiceNumber: invNumber,
+      invoiceDate: today,
+      nomorPo: po.nomorPo || '',
+      companyName: po.buyerCompany || '',
+      recipientName: po.picName || '',
+      address: po.buyerAddress || po.deliveryAddress || '',
+      items:
+        mappedItems.length > 0
+          ? mappedItems
+          : [
+              {
+                id: `inv-po-${Date.now()}-1`,
+                description: '',
+                qty: 1,
+                satuan: 'unit',
+                price: 0,
+                total: 0,
+              },
+            ],
+      tradeInActive: false,
+      tradeInName: 'Trade In Barang Bekas',
+      tradeInValue: 0,
+      discountActive: false,
+      discountValue: 0,
+      ppnActive: false,
+      ppnPercent: 11,
+      subtotal,
+      total,
+      terbilang: angkaKeTerbilang(total),
+      bankName: settings.bankName || 'Mandiri',
+      bankAccountName: settings.bankAccountName || 'CV. MULIA TEKHNIK ABADI',
+      bankAccountNumber: settings.bankAccountNumber || '167-00-0529426-8',
+      signatoryName: settings.signatoryName || 'MUHAMAD RIDHO',
+      status: 'Belum Lunas',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setEditingInvoice(converted);
+    setActiveView('form');
+    onToast(`Data dari PO ${po.nomorPo} berhasil ditarik ke Invoice!`);
+  };
+
   return (
     <div className="w-full">
       {activeView === 'daftar' && (
@@ -220,6 +304,7 @@ A/N ${inv.bankAccountName || settings.bankAccountName || 'CV. MULIA TEKHNIK ABAD
           invoices={invoices}
           settings={settings}
           letters={letters}
+          purchaseOrders={purchaseOrders}
           onCreateNew={handleCreateNew}
           onEdit={handleEdit}
           onDuplicate={handleDuplicate}
@@ -227,6 +312,7 @@ A/N ${inv.bankAccountName || settings.bankAccountName || 'CV. MULIA TEKHNIK ABAD
           onShare={handleShare}
           onDelete={handleDeleteInvoice}
           onSelectLetter={handleSelectLetterForInvoice}
+          onSelectPo={handleSelectPoForInvoice}
           onToast={onToast}
         />
       )}

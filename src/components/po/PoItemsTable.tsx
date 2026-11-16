@@ -11,19 +11,29 @@ interface PoItemsTableProps {
 export const PoItemsTable: React.FC<PoItemsTableProps> = ({
   items,
   onChange,
-  currency = 'IDR',
 }) => {
-  const formatRupiah = (val: number) => {
-    return new Intl.NumberFormat('id-ID', {
-      style: 'currency',
-      currency: currency || 'IDR',
+  const formatNumber = (val: number) => {
+    return new Intl.NumberFormat('en-US', {
       maximumFractionDigits: 0,
-    }).format(val || 0);
+    }).format(Math.round(val || 0));
+  };
+
+  const getDisplayDescription = (item: PoItem) => {
+    const name = (item.itemName || '').trim();
+    const spec = (item.itemSpec || '').trim();
+    if (spec && name && !name.toLowerCase().includes(spec.toLowerCase())) {
+      return `${name} ${spec}`;
+    }
+    return item.itemName ?? '';
   };
 
   const handleItemChange = (index: number, field: keyof PoItem, value: any) => {
     const updated = [...items];
     const item = { ...updated[index], [field]: value };
+
+    if (field === 'itemName') {
+      item.itemSpec = '';
+    }
 
     // Auto calculate totalPrice if qty or unitPrice changed
     if (field === 'qty' || field === 'unitPrice') {
@@ -45,7 +55,7 @@ export const PoItemsTable: React.FC<PoItemsTableProps> = ({
       itemName: '',
       itemSpec: '',
       qty: 1,
-      satuan: 'UNIT',
+      satuan: 'unit',
       unitPrice: 0,
       totalPrice: 0,
     };
@@ -53,10 +63,12 @@ export const PoItemsTable: React.FC<PoItemsTableProps> = ({
   };
 
   const handleDeleteItem = (index: number) => {
-    const updated = items.filter((_, i) => i !== index).map((item, idx) => ({
-      ...item,
-      itemNo: idx + 1,
-    }));
+    const updated = items
+      .filter((_, i) => i !== index)
+      .map((item, idx) => ({
+        ...item,
+        itemNo: idx + 1,
+      }));
     onChange(updated);
   };
 
@@ -66,7 +78,7 @@ export const PoItemsTable: React.FC<PoItemsTableProps> = ({
         <div className="flex items-center gap-2">
           <Package className="w-5 h-5 text-blue-600" />
           <h3 className="font-semibold text-gray-800 text-sm md:text-base">
-            Rincian Barang & Jasa ({items.length} Item)
+            Rincian Barang &amp; Jasa ({items.length} Item)
           </h3>
         </div>
         <button
@@ -91,129 +103,110 @@ export const PoItemsTable: React.FC<PoItemsTableProps> = ({
           </button>
         </div>
       ) : (
-        <div className="overflow-x-auto border border-gray-200 rounded-xl shadow-xs bg-white">
-          <table className="w-full text-left text-xs md:text-sm">
-            <thead className="bg-slate-100 text-slate-700 border-b border-gray-200 uppercase font-semibold text-[11px] tracking-wider">
-              <tr>
-                <th className="py-2.5 px-2 text-center w-10">No</th>
-                <th className="py-2.5 px-2 w-24">Kode</th>
-                <th className="py-2.5 px-3 min-w-[200px]">Nama Barang / Jasa</th>
-                <th className="py-2.5 px-2 w-20 text-center">Qty</th>
-                <th className="py-2.5 px-2 w-24 text-center">Satuan</th>
-                <th className="py-2.5 px-3 w-32 text-right">Harga Satuan</th>
-                <th className="py-2.5 px-3 w-32 text-right">Total Harga</th>
-                <th className="py-2.5 px-2 text-center w-12">Aksi</th>
+        <div className="overflow-x-auto bg-white">
+          <table className="w-full border-collapse border border-slate-900 text-xs md:text-sm text-slate-900">
+            <thead>
+              <tr className="bg-white text-slate-950 font-bold">
+                <th className="border border-slate-900 py-2.5 px-2 text-center w-11">No.</th>
+                <th className="border border-slate-900 py-2.5 px-3 text-left min-w-[230px]">
+                  Uraian Pekerjaan / Keterangan
+                </th>
+                <th className="border border-slate-900 py-2.5 px-2 text-center w-16">Qty</th>
+                <th className="border border-slate-900 py-2.5 px-2 text-center w-24">Satuan</th>
+                <th className="border border-slate-900 py-2.5 px-3 text-right w-32">Harga Satuan</th>
+                <th className="border border-slate-900 py-2.5 px-3 text-right w-36">Jumlah (Rp)</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {items.map((item, index) => (
-                <tr key={item.id || index} className="hover:bg-blue-50/40 transition">
-                  {/* No */}
-                  <td className="py-2 px-2 text-center font-medium text-gray-500">
-                    {item.itemNo || index + 1}
-                  </td>
+            <tbody>
+              {items.map((item, index) => {
+                const rowTotal = item.totalPrice || (item.qty || 0) * (item.unitPrice || 0);
+                return (
+                  <tr key={item.id || index} className="hover:bg-blue-50/30 transition group">
+                    {/* No. */}
+                    <td className="border border-slate-900 py-2 px-2 text-center font-bold align-middle">
+                      {item.itemNo || index + 1}
+                    </td>
 
-                  {/* Kode Barang */}
-                  <td className="py-2 px-2">
-                    <input
-                      type="text"
-                      value={item.itemCode || ''}
-                      onChange={(e) => handleItemChange(index, 'itemCode', e.target.value)}
-                      placeholder="Kode"
-                      className="w-full px-2 py-1 bg-white border border-gray-200 rounded text-xs focus:ring-1 focus:ring-blue-500 focus:border-blue-500 font-mono"
-                    />
-                  </td>
+                    {/* Uraian Pekerjaan / Keterangan */}
+                    <td className="border border-slate-900 py-1.5 px-2.5 align-middle">
+                      <input
+                        type="text"
+                        value={getDisplayDescription(item)}
+                        onChange={(e) => handleItemChange(index, 'itemName', e.target.value)}
+                        placeholder="Uraian pekerjaan atau barang..."
+                        className="w-full px-1.5 py-1 bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-blue-500 rounded text-xs md:text-sm font-normal text-slate-900 focus:outline-none"
+                      />
+                    </td>
 
-                  {/* Nama & Spesifikasi */}
-                  <td className="py-2 px-3">
-                    <input
-                      type="text"
-                      value={item.itemName || ''}
-                      onChange={(e) => handleItemChange(index, 'itemName', e.target.value)}
-                      placeholder="Nama Barang atau Jasa"
-                      className="w-full px-2.5 py-1 bg-white border border-gray-200 rounded text-xs md:text-sm font-medium focus:ring-1 focus:ring-blue-500 focus:border-blue-500 mb-1"
-                    />
-                    <input
-                      type="text"
-                      value={item.itemSpec || ''}
-                      onChange={(e) => handleItemChange(index, 'itemSpec', e.target.value)}
-                      placeholder="Spesifikasi / detail tambahan (opsional)"
-                      className="w-full px-2 py-0.5 bg-gray-50 border border-gray-200 rounded text-[11px] text-gray-600 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </td>
+                    {/* Qty */}
+                    <td className="border border-slate-900 py-1.5 px-1.5 text-center align-middle">
+                      <input
+                        type="number"
+                        min="0.01"
+                        step="any"
+                        value={item.qty ?? 1}
+                        onChange={(e) =>
+                          handleItemChange(index, 'qty', parseFloat(e.target.value) || 0)
+                        }
+                        className="w-full px-1 py-1 text-center bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-blue-500 rounded text-xs md:text-sm font-bold text-slate-900 focus:outline-none"
+                      />
+                    </td>
 
-                  {/* Qty */}
-                  <td className="py-2 px-2">
-                    <input
-                      type="number"
-                      min="0.01"
-                      step="any"
-                      value={item.qty ?? 1}
-                      onChange={(e) =>
-                        handleItemChange(index, 'qty', parseFloat(e.target.value) || 0)
-                      }
-                      className="w-full px-2 py-1 text-center bg-white border border-gray-200 rounded text-xs font-semibold focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </td>
+                    {/* Satuan */}
+                    <td className="border border-slate-900 py-1.5 px-1.5 text-center align-middle">
+                      <input
+                        type="text"
+                        list={`satuan-list-${index}`}
+                        value={item.satuan || 'unit'}
+                        onChange={(e) => handleItemChange(index, 'satuan', e.target.value)}
+                        placeholder="unit"
+                        className="w-full px-1 py-1 text-center bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-blue-500 rounded text-xs md:text-sm font-normal text-slate-900 focus:outline-none"
+                      />
+                      <datalist id={`satuan-list-${index}`}>
+                        <option value="Meter" />
+                        <option value="unit" />
+                        <option value="Lot" />
+                        <option value="Pcs" />
+                        <option value="Set" />
+                        <option value="Box" />
+                        <option value="Roll" />
+                        <option value="Kg" />
+                        <option value="Titik" />
+                        <option value="Paket" />
+                      </datalist>
+                    </td>
 
-                  {/* Satuan */}
-                  <td className="py-2 px-2">
-                    <input
-                      type="text"
-                      list={`satuan-list-${index}`}
-                      value={item.satuan || 'UNIT'}
-                      onChange={(e) =>
-                        handleItemChange(index, 'satuan', e.target.value.toUpperCase())
-                      }
-                      placeholder="PCS/UNIT"
-                      className="w-full px-2 py-1 text-center bg-white border border-gray-200 rounded text-xs uppercase font-medium focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                    <datalist id={`satuan-list-${index}`}>
-                      <option value="UNIT" />
-                      <option value="PCS" />
-                      <option value="SET" />
-                      <option value="LOT" />
-                      <option value="BOX" />
-                      <option value="ROLL" />
-                      <option value="MTR" />
-                      <option value="KG" />
-                      <option value="TITIK" />
-                      <option value="PAKET" />
-                    </datalist>
-                  </td>
+                    {/* Harga Satuan */}
+                    <td className="border border-slate-900 py-1.5 px-2 text-right align-middle">
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={item.unitPrice || 0}
+                        onChange={(e) =>
+                          handleItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)
+                        }
+                        className="w-full px-1.5 py-1 text-right bg-transparent hover:bg-slate-50 focus:bg-white border border-transparent focus:border-blue-500 rounded text-xs md:text-sm font-mono text-slate-900 focus:outline-none"
+                      />
+                    </td>
 
-                  {/* Unit Price */}
-                  <td className="py-2 px-3">
-                    <input
-                      type="number"
-                      min="0"
-                      step="1"
-                      value={item.unitPrice || 0}
-                      onChange={(e) =>
-                        handleItemChange(index, 'unitPrice', parseFloat(e.target.value) || 0)
-                      }
-                      className="w-full px-2 py-1 text-right bg-white border border-gray-200 rounded text-xs font-semibold text-slate-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  </td>
-
-                  {/* Total Price */}
-                  <td className="py-2 px-3 text-right font-semibold text-blue-700 whitespace-nowrap">
-                    {formatRupiah(item.totalPrice || (item.qty || 0) * (item.unitPrice || 0))}
-                  </td>
-
-                  {/* Delete */}
-                  <td className="py-2 px-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteItem(index)}
-                      className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition"
-                      title="Hapus baris"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
+                    {/* Jumlah (Rp) + compact row delete trigger */}
+                    <td className="border border-slate-900 py-1.5 px-2.5 text-right font-bold font-mono text-slate-950 whitespace-nowrap align-middle">
+                      <div className="flex items-center justify-end gap-1.5">
+                        <span>{formatNumber(rowTotal)}</span>
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteItem(index)}
+                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded transition shrink-0"
+                          title="Hapus baris"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

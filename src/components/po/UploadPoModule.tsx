@@ -167,7 +167,7 @@ export const UploadPoModule: React.FC<UploadPoModuleProps> = ({
           itemName: '',
           itemSpec: '',
           qty: 1,
-          satuan: 'UNIT',
+          satuan: 'unit',
           unitPrice: 0,
           totalPrice: 0,
         },
@@ -243,17 +243,27 @@ export const UploadPoModule: React.FC<UploadPoModuleProps> = ({
         vendorCompany: raw.vendorCompany || 'CV. MULIA TEKHNIK ABADI',
 
         items: Array.isArray(raw.items)
-          ? raw.items.map((it: any, idx: number) => ({
-              id: `item-${Date.now()}-${idx}`,
-              itemNo: it.itemNo || idx + 1,
-              itemCode: it.itemCode || '',
-              itemName: it.itemName || '',
-              itemSpec: it.itemSpec || '',
-              qty: Number(it.qty) || 1,
-              satuan: (it.satuan || 'UNIT').toUpperCase(),
-              unitPrice: Number(it.unitPrice) || 0,
-              totalPrice: Number(it.totalPrice) || (Number(it.qty) || 1) * (Number(it.unitPrice) || 0),
-            }))
+          ? raw.items.map((it: any, idx: number) => {
+              const name = String(it.itemName || it.description || '').trim();
+              const spec = String(it.itemSpec || '').trim();
+              const combinedName =
+                spec && name && !name.toLowerCase().includes(spec.toLowerCase())
+                  ? `${name} ${spec}`
+                  : name || spec;
+              const qty = Number(it.qty) || 1;
+              const unitPrice = Number(it.unitPrice) || 0;
+              return {
+                id: `item-${Date.now()}-${idx}`,
+                itemNo: it.itemNo || idx + 1,
+                itemCode: it.itemCode || '',
+                itemName: combinedName,
+                itemSpec: '',
+                qty,
+                satuan: String(it.satuan || 'unit').trim() || 'unit',
+                unitPrice,
+                totalPrice: Number(it.totalPrice) || Math.round(qty * unitPrice),
+              };
+            })
           : [],
 
         subtotal: Number(raw.subtotal) || 0,
@@ -316,7 +326,7 @@ export const UploadPoModule: React.FC<UploadPoModuleProps> = ({
             itemName: 'Item sesuai dokumen lampiran',
             itemSpec: '',
             qty: 1,
-            satuan: 'UNIT',
+            satuan: 'unit',
             unitPrice: 0,
             totalPrice: 0,
           },
@@ -377,9 +387,6 @@ export const UploadPoModule: React.FC<UploadPoModuleProps> = ({
           <h1 className="text-xl md:text-3xl font-extrabold tracking-tight">
             Upload & Ekstraksi Purchase Order (PO)
           </h1>
-          <p className="mt-2 text-xs md:text-sm text-blue-100 leading-relaxed">
-            Pindai dokumen PO dari klien secara otomatis menggunakan kecerdasan buatan. Sistem membaca nomor PO, tabel rincian barang, total biaya, syarat pembayaran, dan langsung tersinkron ke Cloud Database online.
-          </p>
         </div>
 
         {/* Decorative Background Icon */}
@@ -450,9 +457,6 @@ export const UploadPoModule: React.FC<UploadPoModuleProps> = ({
                 <h3 className="text-base md:text-lg font-bold text-gray-900">
                   Unggah Dokumen Purchase Order
                 </h3>
-                <p className="text-xs text-gray-500 mt-1">
-                  Format yang didukung: JPG, JPEG, PNG, dan PDF (dapat memilih beberapa halaman sekaligus atau ambil foto langsung).
-                </p>
               </div>
 
               {/* Hidden file inputs */}
@@ -492,9 +496,6 @@ export const UploadPoModule: React.FC<UploadPoModuleProps> = ({
                   <span className="text-xs md:text-sm font-bold text-gray-800">
                     Pilih File dari Perangkat
                   </span>
-                  <span className="text-[11px] text-gray-500 mt-1">
-                    Klik untuk memilih gambar atau dokumen PDF
-                  </span>
                 </div>
 
                 {/* Camera Capture */}
@@ -507,9 +508,6 @@ export const UploadPoModule: React.FC<UploadPoModuleProps> = ({
                   </div>
                   <span className="text-xs md:text-sm font-bold text-gray-800">
                     Foto Langsung Menggunakan Kamera
-                  </span>
-                  <span className="text-[11px] text-gray-500 mt-1">
-                    Buka kamera HP atau webcam untuk memotret fisik PO
                   </span>
                 </div>
               </div>
@@ -659,6 +657,7 @@ export const UploadPoModule: React.FC<UploadPoModuleProps> = ({
                   <PoVerificationForm
                     initialData={extractedData}
                     onSave={handleSavePo}
+                    onCreateInvoice={onNavigateToInvoice}
                     onReExtract={handleStartExtraction}
                     onCancel={() => {
                       if (confirm('Batalkan hasil ekstraksi ini dan kembali ke pemilihan berkas?')) {
