@@ -1,14 +1,29 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+
+function appVersionFilePlugin(): Plugin {
+  const buildVersion = Date.now().toString(36);
+  return {
+    name: 'app-version-file',
+    generateBundle() {
+      this.emitFile({
+        type: 'asset',
+        fileName: 'version.json',
+        source: JSON.stringify({ version: buildVersion }),
+      });
+    },
+  };
+}
 
 export default defineConfig(() => {
   return {
     plugins: [
       react(),
       tailwindcss(),
+      appVersionFilePlugin(),
       VitePWA({
         registerType: 'prompt',
         includeAssets: ['favicon.png', 'favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'manifest.json'],
@@ -48,6 +63,7 @@ export default defineConfig(() => {
           globPatterns: ['**/*.{js,css,html,ico,png,svg,woff,woff2}'],
           maximumFileSizeToCacheInBytes: 6 * 1024 * 1024, // 6 MiB to cache full offline bundle
           cleanupOutdatedCaches: true,
+          navigateFallbackDenylist: [/^\/api\//, /^\/version\.json$/],
         },
         devOptions: {
           enabled: true,

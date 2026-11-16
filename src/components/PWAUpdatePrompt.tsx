@@ -57,26 +57,37 @@ export const PWAUpdatePrompt: React.FC = () => {
       // Abaikan error sementara saat cek SW
     }
 
-    // 2. Cek versi server secara langsung (/api/app-version) agar deteksi juga bekerja di mode dev maupun saat SW belum terpicu
+    // 2. Cek versi server secara langsung (/api/app-version, atau fallback /version.json untuk hosting statis Netlify)
     try {
-      const res = await fetch(`/api/app-version?_t=${Date.now()}`, {
-        cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache' },
-      });
-      if (!res.ok) return;
-      const data = (await res.json()) as { version?: string };
-      if (!data?.version) return;
+      const fetchJsonVersion = async (endpoint: string): Promise<string | null> => {
+        const res = await fetch(`${endpoint}?_t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Cache-Control': 'no-cache' },
+        });
+        const contentType = res.headers.get('content-type') || '';
+        if (!res.ok || !contentType.includes('application/json')) {
+          return null;
+        }
+        const data = (await res.json()) as { version?: string };
+        return data?.version || null;
+      };
+
+      const version =
+        (await fetchJsonVersion('/api/app-version')) ||
+        (await fetchJsonVersion('/version.json'));
+
+      if (!version) return;
 
       if (!initialVersionRef.current) {
-        initialVersionRef.current = data.version;
-        latestServerVersionRef.current = data.version;
+        initialVersionRef.current = version;
+        latestServerVersionRef.current = version;
         return;
       }
 
-      latestServerVersionRef.current = data.version;
+      latestServerVersionRef.current = version;
       if (
-        data.version !== initialVersionRef.current &&
-        dismissedVersionRef.current !== data.version
+        version !== initialVersionRef.current &&
+        dismissedVersionRef.current !== version
       ) {
         setServerHasUpdate(true);
       }
