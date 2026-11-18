@@ -76,17 +76,6 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
     initialInvoice?.tradeInValue || 0
   );
 
-  // Bank Info
-  const [bankName, setBankName] = useState<string>(
-    initialInvoice?.bankName || settings.bankName || 'Mandiri'
-  );
-  const [bankAccountName, setBankAccountName] = useState<string>(
-    initialInvoice?.bankAccountName || settings.bankAccountName || 'CV. MULIA TEKHNIK ABADI'
-  );
-  const [bankAccountNumber, setBankAccountNumber] = useState<string>(
-    initialInvoice?.bankAccountNumber || settings.bankAccountNumber || '167-00-0529426-8'
-  );
-
   const [status, setStatus] = useState<'Belum Lunas' | 'Lunas' | 'Draft'>(
     initialInvoice?.status || 'Belum Lunas'
   );
@@ -133,9 +122,6 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
             if (draft.tradeInActive !== undefined) setTradeInActive(draft.tradeInActive);
             if (draft.tradeInName) setTradeInName(draft.tradeInName);
             if (draft.tradeInValue !== undefined) setTradeInValue(draft.tradeInValue);
-            if (draft.bankName) setBankName(draft.bankName);
-            if (draft.bankAccountName) setBankAccountName(draft.bankAccountName);
-            if (draft.bankAccountNumber) setBankAccountNumber(draft.bankAccountNumber);
             setHasRestoredDraft(true);
             onToast('Draft Invoice sebelumnya dipulihkan');
           }
@@ -184,9 +170,6 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
     tradeInActive,
     tradeInName,
     tradeInValue,
-    bankName,
-    bankAccountName,
-    bankAccountNumber,
   ]);
 
   // Flush draft immediately when navigating away via BottomNav/Sidebar/Back or tab hide
@@ -424,9 +407,9 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
       subtotal,
       total,
       terbilang,
-      bankName: bankName.trim(),
-      bankAccountName: bankAccountName.trim(),
-      bankAccountNumber: bankAccountNumber.trim(),
+      bankName: (settings.bankName || initialInvoice?.bankName || 'Mandiri').trim(),
+      bankAccountName: (settings.bankAccountName || initialInvoice?.bankAccountName || 'CV. MULIA TEKHNIK ABADI').trim(),
+      bankAccountNumber: (settings.bankAccountNumber || initialInvoice?.bankAccountNumber || '167-00-0529426-8').trim(),
       signatoryName: settings.signatoryName || 'MUHAMAD RIDHO',
       status,
       createdAt: initialInvoice?.createdAt || new Date().toISOString(),
@@ -857,67 +840,23 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
           </div>
         </div>
 
-        {/* SECTION 5: REKENING TRANSFER & STATUS */}
+        {/* SECTION 5: STATUS PEMBAYARAN */}
         <div className="bg-white rounded-xl p-3 sm:p-4 shadow-xs border border-slate-200 space-y-2.5">
           <h3 className="text-xs font-bold text-[#0b223d] uppercase tracking-wider flex items-center gap-1.5">
             <span className="w-1.5 h-3 rounded-full bg-blue-600"></span>
-            Pembayaran Transfer &amp; Status
+            Status Pembayaran
           </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5">
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Nama Bank
-              </label>
-              <input
-                type="text"
-                value={bankName}
-                onChange={(e) => setBankName(e.target.value)}
-                placeholder="Mandiri"
-                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50/50 font-bold"
-              />
-            </div>
-
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Atas Nama
-              </label>
-              <input
-                type="text"
-                value={bankAccountName}
-                onChange={(e) => setBankAccountName(e.target.value)}
-                placeholder="CV. MULIA TEKHNIK ABADI"
-                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50/50 font-bold"
-              />
-            </div>
-
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Nomor Rekening
-              </label>
-              <input
-                type="text"
-                value={bankAccountNumber}
-                onChange={(e) => setBankAccountNumber(e.target.value)}
-                placeholder="167-00-0529426-8"
-                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-slate-50/50 font-mono font-bold"
-              />
-            </div>
-
-            <div>
-              <label className="block font-semibold text-slate-700 mb-1">
-                Status Pembayaran
-              </label>
-              <select
-                value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
-                className="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white font-bold"
-              >
-                <option value="Belum Lunas">Belum Lunas</option>
-                <option value="Lunas">Lunas</option>
-                <option value="Draft">Draft</option>
-              </select>
-            </div>
+          <div>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as any)}
+              className="w-full sm:max-w-xs px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white font-bold"
+            >
+              <option value="Belum Lunas">Belum Lunas</option>
+              <option value="Lunas">Lunas</option>
+              <option value="Draft">Draft</option>
+            </select>
           </div>
         </div>
 
