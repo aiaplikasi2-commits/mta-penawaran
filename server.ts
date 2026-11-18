@@ -47,6 +47,14 @@ function getAppVersion(): string {
   if (isProd) {
     if (cachedProdVersion) return cachedProdVersion;
     try {
+      const distVersionJson = path.resolve(__dirname, 'dist', 'version.json');
+      if (fs.existsSync(distVersionJson)) {
+        const parsed = JSON.parse(fs.readFileSync(distVersionJson, 'utf-8')) as { version?: string };
+        if (parsed?.version) {
+          cachedProdVersion = parsed.version;
+          return cachedProdVersion;
+        }
+      }
       const hash = crypto.createHash('sha1');
       const distIndex = path.resolve(__dirname, 'dist', 'index.html');
       const distSw = path.resolve(__dirname, 'dist', 'sw.js');

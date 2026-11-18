@@ -13,6 +13,7 @@ import {
   AlertTriangle,
   RotateCcw,
   Receipt,
+  Plus,
 } from 'lucide-react';
 import type { CompanySettings, LetterData } from '../types/index.ts';
 import { formatNumberIndo, formatIndoDate } from '../services/pdfGenerator.ts';
@@ -26,6 +27,7 @@ interface RekapSuratProps {
   onShareLetter: (letter: LetterData) => void;
   onDeleteLetter: (id: string) => Promise<void>;
   onConvertToInvoice?: (letter: LetterData) => void;
+  onCreateNew?: () => void;
   onToast: (msg: string) => void;
 }
 
@@ -37,6 +39,7 @@ export const RekapSurat: React.FC<RekapSuratProps> = ({
   onShareLetter,
   onDeleteLetter,
   onConvertToInvoice,
+  onCreateNew,
   onToast,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
@@ -60,8 +63,9 @@ export const RekapSurat: React.FC<RekapSuratProps> = ({
   const uniqueCustomers = useMemo(() => {
     const set = new Set<string>();
     letters.forEach((l) => {
-      if (l.companyName && l.companyName.trim()) {
-        set.add(l.companyName.trim());
+      const displayName = (l.companyName || '').trim() || (l.recipientName || '').trim();
+      if (displayName) {
+        set.add(displayName);
       }
     });
     return Array.from(set).sort();
@@ -96,7 +100,8 @@ export const RekapSurat: React.FC<RekapSuratProps> = ({
       // Customer filter
       let matchCustomer = true;
       if (selectedCustomer !== 'all') {
-        matchCustomer = (l.companyName || '').trim() === selectedCustomer;
+        const displayName = (l.companyName || '').trim() || (l.recipientName || '').trim();
+        matchCustomer = displayName === selectedCustomer;
       }
 
       return matchSearch && matchMonth && matchYear && matchCustomer;
@@ -153,7 +158,7 @@ export const RekapSurat: React.FC<RekapSuratProps> = ({
   };
 
   return (
-    <div className="pb-24 pt-2 max-w-4xl mx-auto px-3 sm:px-4 space-y-4">
+    <div className="pb-36 pt-2 max-w-4xl mx-auto px-3 sm:px-4 space-y-4">
       {/* Header and Summary Cards */}
       <div className="bg-white rounded-2xl p-4 shadow-xs border border-slate-200">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100">
@@ -321,9 +326,9 @@ export const RekapSurat: React.FC<RekapSuratProps> = ({
                       </span>
                     </div>
 
-                    {/* Nama PT (Pelanggan) */}
+                    {/* Nama PT atau Nama Penerima (utamakan Nama PT jika diisi) */}
                     <h3 className="font-bold text-sm sm:text-base text-slate-900 mt-1.5 truncate">
-                      {l.companyName || '(Pelanggan Tanpa Nama)'}
+                      {l.companyName?.trim() || l.recipientName?.trim() || '(Pelanggan Tanpa Nama)'}
                     </h3>
                   </div>
 
@@ -438,6 +443,18 @@ export const RekapSurat: React.FC<RekapSuratProps> = ({
             </div>
           </div>
         </div>
+      )}
+      {/* TOMBOL + MUDAH DIJANGKAU IBU JARI */}
+      {onCreateNew && (
+        <button
+          type="button"
+          onClick={onCreateNew}
+          className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 sm:right-6 z-30 flex items-center gap-2 px-4 py-3 min-h-[48px] bg-[#0b223d] hover:bg-blue-900 active:scale-95 text-white font-extrabold text-xs rounded-full shadow-[0_8px_24px_rgba(11,34,61,0.38)] border border-sky-400/40 transition-transform"
+          title="Buat Surat Penawaran Baru"
+        >
+          <Plus className="w-4 h-4 text-sky-400 stroke-[2.75]" />
+          <span>Buat Surat</span>
+        </button>
       )}
     </div>
   );

@@ -231,7 +231,7 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
           <div className="flex items-center justify-between px-1">
             <h3 className="text-xs sm:text-sm font-bold text-[#0b223d] uppercase tracking-wider flex items-center gap-2">
               <span className="w-2 h-4 rounded-full bg-blue-600"></span>
-              Gambar Resmi Perusahaan (Logo, KOP Surat, &amp; Stempel / TTD)
+              Logo, KOP &amp; Stempel
             </h3>
             <span className="text-[11px] text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full font-semibold border border-blue-200/60">
               3 Upload Terpisah
@@ -320,7 +320,7 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
                     <FileText className="w-4 h-4 text-sky-600" />
-                    <span>2. Upload KOP Surat</span>
+                    <span>2. KOP Surat</span>
                   </div>
                   {formData.kopImage ? (
                     <button
@@ -398,7 +398,7 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                 <div className="flex items-center justify-between mb-1">
                   <div className="flex items-center gap-1.5 font-bold text-xs text-slate-900">
                     <FileSignature className="w-4 h-4 text-emerald-600" />
-                    <span>3. Upload Stempel / TTD</span>
+                    <span>3. Stempel / TTD</span>
                   </div>
                   {formData.signatureImage ? (
                     <button
@@ -497,7 +497,7 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
         <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-xs border border-slate-200 space-y-3.5 text-xs">
           <h3 className="text-sm font-bold text-[#0b223d] uppercase tracking-wider flex items-center gap-2">
             <span className="w-2 h-4 rounded-full bg-blue-600"></span>
-            Identitas Resmi Perusahaan
+            Nama Toko
           </h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
@@ -715,7 +715,7 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
             className="flex items-center gap-2 bg-[#0b223d] hover:bg-blue-900 text-white font-bold text-xs px-6 py-3 rounded-xl shadow-md transition active:scale-95"
           >
             <Save className="w-4 h-4" />
-            <span>Simpan Semua Pengaturan Perusahaan</span>
+            <span>Simpan Pengaturan</span>
           </button>
         </div>
       </form>

@@ -2,6 +2,11 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { Download, RefreshCw, ShieldCheck, X } from 'lucide-react';
 
+declare const __APP_BUILD_VERSION__: string;
+
+const CLIENT_BUILD_VERSION =
+  typeof __APP_BUILD_VERSION__ !== 'undefined' ? __APP_BUILD_VERSION__ : '';
+
 const UPDATE_CHECK_INTERVAL_MS = 60 * 1000; // Cek update tiap 1 menit
 const MIN_MANUAL_CHECK_GAP_MS = 15 * 1000; // Batasi cek saat fokus/online minimal jeda 15 detik
 
@@ -9,7 +14,7 @@ export const PWAUpdatePrompt: React.FC = () => {
   const [isUpdating, setIsUpdating] = useState(false);
   const [serverHasUpdate, setServerHasUpdate] = useState(false);
   const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
-  const initialVersionRef = useRef<string | null>(null);
+  const initialVersionRef = useRef<string | null>(CLIENT_BUILD_VERSION || null);
   const latestServerVersionRef = useRef<string | null>(null);
   const dismissedVersionRef = useRef<string | null>(null);
   const lastCheckAtRef = useRef<number>(0);
@@ -21,10 +26,18 @@ export const PWAUpdatePrompt: React.FC = () => {
     onRegisteredSW(_swUrl, registration) {
       if (registration) {
         registrationRef.current = registration;
-        // Jika sudah ada SW waiting saat pertama kali dimuat, tampilkan pop-up
         if (registration.waiting) {
           setNeedRefresh(true);
         }
+        registration.addEventListener('updatefound', () => {
+          const newWorker = registration.installing;
+          if (!newWorker) return;
+          newWorker.addEventListener('statechange', () => {
+            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              setNeedRefresh(true);
+            }
+          });
+        });
       }
     },
     onRegisterError(error) {

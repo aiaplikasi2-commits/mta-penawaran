@@ -4,6 +4,7 @@ import {
   FileSpreadsheet,
   Users,
   Settings,
+  Plus,
 } from 'lucide-react';
 import type { Karyawan, SlipGaji, SalarySettings } from '../../types/salary.ts';
 import type { CompanySettings } from '../../types/index.ts';
@@ -293,6 +294,21 @@ export const SalaryModule: React.FC<SalaryModuleProps> = ({
           onDelete={handleDeleteSlip}
           onToast={onToast}
         />
+      )}
+      {/* TOMBOL + MUDAH DIJANGKAU IBU JARI */}
+      {(activeSalaryTab === 'rekap-gaji' || activeSalaryTab === 'karyawan') && (
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedKaryawanForSlip(null);
+            setActiveSalaryTab('buat-slip');
+          }}
+          className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 sm:right-6 z-30 flex items-center gap-2 px-4 py-3 min-h-[48px] bg-[#0b223d] hover:bg-blue-900 active:scale-95 text-white font-extrabold text-xs rounded-full shadow-[0_8px_24px_rgba(11,34,61,0.38)] border border-sky-400/40 transition-transform"
+          title="Buat Slip Gaji Baru"
+        >
+          <Plus className="w-4 h-4 text-sky-400 stroke-[2.75]" />
+          <span>Buat Slip</span>
+        </button>
       )}
     </div>
   );

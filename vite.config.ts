@@ -4,8 +4,7 @@ import path from 'path';
 import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-function appVersionFilePlugin(): Plugin {
-  const buildVersion = Date.now().toString(36);
+function appVersionFilePlugin(buildVersion: string): Plugin {
   return {
     name: 'app-version-file',
     generateBundle() {
@@ -18,12 +17,16 @@ function appVersionFilePlugin(): Plugin {
   };
 }
 
-export default defineConfig(() => {
+export default defineConfig(({ command }) => {
+  const buildVersion = Date.now().toString(36);
   return {
+    define: {
+      __APP_BUILD_VERSION__: JSON.stringify(command === 'build' ? buildVersion : ''),
+    },
     plugins: [
       react(),
       tailwindcss(),
-      appVersionFilePlugin(),
+      appVersionFilePlugin(buildVersion),
       VitePWA({
         registerType: 'prompt',
         includeAssets: ['favicon.png', 'favicon.ico', 'apple-touch-icon.png', 'icon.svg', 'manifest.json'],

@@ -116,7 +116,7 @@ export const DataKaryawan: React.FC<DataKaryawanProps> = ({
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 pb-28 space-y-4">
+    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 pb-36 space-y-4">
       {/* SEARCH BAR & TAMBAH BUTTON - Matching Screenshot 2 */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
         {/* Search Input */}

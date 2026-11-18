@@ -88,7 +88,7 @@ export const RekapGaji: React.FC<RekapGajiProps> = ({
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 pb-28 space-y-4">
+    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 pb-36 space-y-4">
       {/* HEADER SECTION - Matching Screenshot 3 */}
       <div className="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         {/* Title with MTA logo */}

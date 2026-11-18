@@ -467,6 +467,7 @@ export default function App() {
         draft &&
         (draft.subject.trim() ||
           draft.companyName.trim() ||
+          draft.recipientName.trim() ||
           draft.items.some((i) => i.description.trim()))
       ) {
         const draftLetter = {
@@ -650,6 +651,7 @@ export default function App() {
                 onShareLetter={handleSharePDF}
                 onDeleteLetter={handleDeleteLetter}
                 onConvertToInvoice={handleConvertToInvoice}
+                onCreateNew={() => handleTabChange('tambah')}
                 onToast={showToast}
               />
             )}

@@ -153,7 +153,12 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
 
   // Synchronize letterNumber automatically with settings sequence if creating a new unsaved letter
   useEffect(() => {
-    if (!initialLetter && !formData.subject.trim() && !formData.companyName.trim()) {
+    if (
+      !initialLetter &&
+      !formData.subject.trim() &&
+      !formData.companyName.trim() &&
+      !formData.recipientName.trim()
+    ) {
       const seq = settings.nextSequenceNumber ?? 16;
       const syncedNumber = formatLetterNumber(seq, formData.letterDate, settings.numberFormat);
       setFormData((prev) => ({
@@ -169,6 +174,7 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
     const hasContent =
       formData.subject.trim() ||
       formData.companyName.trim() ||
+      formData.recipientName.trim() ||
       formData.items.some((it) => it.description.trim());
 
     if (hasContent) {
@@ -202,6 +208,7 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
       const hasContent =
         cur.subject.trim() ||
         cur.companyName.trim() ||
+        cur.recipientName.trim() ||
         cur.items.some((it) => it.description.trim());
 
       if (hasContent) {
@@ -1480,11 +1487,13 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
                         city: c.city || prev.city,
                       }));
                       setShowCustomerPicker(false);
-                      onToast(`Pelanggan "${c.companyName}" terpilih`);
+                      onToast(`Pelanggan "${c.companyName?.trim() || c.recipientName?.trim() || 'Pelanggan'}" terpilih`);
                     }}
                     className="p-2.5 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 cursor-pointer transition text-xs"
                   >
-                    <div className="font-bold text-slate-800">{c.companyName}</div>
+                    <div className="font-bold text-slate-800">
+                      {c.companyName?.trim() || c.recipientName?.trim() || '-'}
+                    </div>
                     <div className="text-slate-600">{c.recipientName || '-'}</div>
                     <div className="text-[11px] text-slate-400 truncate">{c.address}</div>
                   </div>

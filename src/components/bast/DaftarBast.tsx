@@ -98,7 +98,7 @@ export const DaftarBast: React.FC<DaftarBastProps> = ({
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 pb-28 space-y-3.5">
+    <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4 pb-36 space-y-3.5">
       {/* HEADER BAR */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
@@ -121,7 +121,7 @@ export const DaftarBast: React.FC<DaftarBastProps> = ({
             className="flex items-center gap-1.5 px-4 py-2 bg-[#0b223d] hover:bg-blue-900 active:scale-95 text-white font-bold text-xs rounded-xl shadow-md transition"
           >
             <Plus className="w-4 h-4 text-sky-400" />
-            <span>+ Buat BAST</span>
+            <span>Buat BAST</span>
           </button>
         </div>
       </div>
@@ -299,6 +299,16 @@ export const DaftarBast: React.FC<DaftarBastProps> = ({
           </div>
         </div>
       )}
+      {/* TOMBOL + MUDAH DIJANGKAU IBU JARI */}
+      <button
+        type="button"
+        onClick={onCreateNew}
+        className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 sm:right-6 z-30 flex items-center gap-2 px-4 py-3 min-h-[48px] bg-[#0b223d] hover:bg-blue-900 active:scale-95 text-white font-extrabold text-xs rounded-full shadow-[0_8px_24px_rgba(11,34,61,0.38)] border border-sky-400/40 transition-transform"
+        title="Buat BAST Baru"
+      >
+        <Plus className="w-4 h-4 text-sky-400 stroke-[2.75]" />
+        <span>Buat BAST</span>
+      </button>
     </div>
   );
 };
