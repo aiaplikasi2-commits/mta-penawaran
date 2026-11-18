@@ -209,7 +209,7 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
             <div>
               <h2 className="text-base font-bold text-[#0b223d] flex items-center gap-2">
                 <Settings className="w-5 h-5 text-blue-600" />
-                <span>Pengaturan Tunggal Perusahaan MTA</span>
+                <span>Pengaturan</span>
               </h2>
             </div>
 
