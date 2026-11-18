@@ -9,6 +9,7 @@ import {
   Settings,
   Package,
   Home,
+  BookOpen,
 } from 'lucide-react';
 import type { CompanySettings } from '../types/index.ts';
 import type { AppMode } from './Header.tsx';
@@ -188,6 +189,19 @@ export const SidebarDrawer: React.FC<SidebarDrawerProps> = ({
             >
               <Settings className="w-4 h-4 text-slate-300" />
               <span>Pengaturan Perusahaan</span>
+            </button>
+
+            {/* Panduan Aplikasi */}
+            <button
+              type="button"
+              onClick={() => {
+                onClose();
+                onNavigate('panduan');
+              }}
+              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-blue-900/60 transition text-left text-sky-200 hover:text-white"
+            >
+              <BookOpen className="w-4 h-4 text-cyan-300" />
+              <span>Panduan Aplikasi</span>
             </button>
           </div>
         </div>

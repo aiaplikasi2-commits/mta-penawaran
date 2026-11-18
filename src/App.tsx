@@ -30,6 +30,7 @@ import { InvoiceModule } from './components/invoice/InvoiceModule.tsx';
 import { DashboardBeranda } from './components/dashboard/DashboardBeranda.tsx';
 import { PoTrackerModal } from './components/dashboard/PoTrackerModal.tsx';
 import { UploadPoModule } from './components/po/UploadPoModule.tsx';
+import { PanduanAplikasi } from './components/PanduanAplikasi.tsx';
 import type { BastData } from './types/bast.ts';
 import type { InvoiceData, InvoiceItem } from './types/invoice.ts';
 import type { PurchaseOrderData } from './types/po.ts';
@@ -531,6 +532,7 @@ export default function App() {
             onOpenPoTracker={() => {
               setIsPoModalOpen(true);
             }}
+            onOpenPanduan={() => handleModeChange('panduan')}
             onOpenSidebar={() => setIsSidebarOpen(true)}
           />
         ) : appMode === 'bast' ? (
@@ -569,6 +571,15 @@ export default function App() {
               }}
             />
           </div>
+        ) : appMode === 'panduan' ? (
+          /* MODE: PANDUAN PENGGUNAAN APLIKASI */
+          <PanduanAplikasi
+            onNavigate={(mode, tab) => {
+              handleModeChange(mode);
+              if (tab) handleTabChange(tab as NavTab);
+            }}
+            onOpenPoTracker={() => setIsPoModalOpen(true)}
+          />
         ) : (
           /* MODE: SURAT PENAWARAN HARGA (SP MTA) */
           <div className="w-full">

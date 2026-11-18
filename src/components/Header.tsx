@@ -7,7 +7,7 @@ import { usePWAInstall } from '../hooks/usePWAInstall.ts';
 import { useOnlineStatus } from '../hooks/useOnlineStatus.ts';
 import { SyncStatusBar } from './SyncStatusBar.tsx';
 
-export type AppMode = 'dashboard' | 'penawaran' | 'bast' | 'invoice' | 'gaji' | 'upload-po';
+export type AppMode = 'dashboard' | 'penawaran' | 'bast' | 'invoice' | 'gaji' | 'upload-po' | 'panduan';
 
 interface HeaderProps {
   appMode: AppMode;
@@ -59,6 +59,8 @@ export const Header: React.FC<HeaderProps> = ({ appMode, onModeChange, onOpenSid
                 ? 'SLIP GAJI'
                 : appMode === 'upload-po'
                 ? 'UPLOAD PO (AI)'
+                : appMode === 'panduan'
+                ? 'PANDUAN APLIKASI'
                 : 'SURAT PENAWARAN'}
             </h1>
             <p className="text-[9px] text-sky-200/90 leading-none">

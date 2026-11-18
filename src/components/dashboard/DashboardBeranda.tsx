@@ -11,6 +11,7 @@ import {
   Users,
   Package,
   CheckCircle2,
+  BookOpen,
 } from 'lucide-react';
 import type { CompanySettings, LetterData, Customer } from '../../types/index.ts';
 import type { BastData } from '../../types/bast.ts';
@@ -27,6 +28,7 @@ interface DashboardBerandaProps {
   onOpenPengaturan: () => void;
   onOpenClientData: () => void;
   onOpenPoTracker: () => void;
+  onOpenPanduan?: () => void;
   onOpenSidebar?: () => void;
   onToast?: (msg: string) => void;
 }
@@ -41,6 +43,7 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
   onOpenPengaturan,
   onOpenClientData,
   onOpenPoTracker,
+  onOpenPanduan,
   onOpenSidebar,
   onToast,
 }) => {
@@ -280,6 +283,34 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
         </div>
       </div>
 
+      {/* 4B. PANDUAN PENGGUNAAN APLIKASI */}
+      {onOpenPanduan && (
+        <div className="px-3 pt-3">
+          <button
+            type="button"
+            onClick={onOpenPanduan}
+            className="w-full bg-white hover:bg-blue-50/60 active:scale-[0.99] transition-all rounded-2xl p-3 border border-slate-200 shadow-xs flex items-center justify-between gap-3 text-left group"
+          >
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
+                <BookOpen className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <h2 className="font-extrabold text-xs sm:text-[13px] text-slate-900 leading-tight">
+                  Panduan Penggunaan Aplikasi
+                </h2>
+                <p className="text-[11px] text-slate-500 mt-0.5 truncate">
+                  Penjelasan lengkap cara pakai semua menu & fitur terbaru
+                </p>
+              </div>
+            </div>
+            <div className="w-6 h-6 rounded-full bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center shadow-xs shrink-0 transition">
+              <ChevronRight className="w-3.5 h-3.5" />
+            </div>
+          </button>
+        </div>
+      )}
+
       {/* 5. DECORATIVE FOOTER BANNER (MATCHING SCREENSHOT) */}
       <div className="px-3 pt-3.5">
         <div className="rounded-3xl overflow-hidden shadow-xs border border-blue-900/40">
@@ -424,6 +455,20 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
                   <Settings className="w-4 h-4 text-slate-300" />
                   <span>Pengaturan Perusahaan</span>
                 </button>
+
+                {onOpenPanduan && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDrawerOpen(false);
+                      onOpenPanduan();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl hover:bg-blue-900/60 transition text-left"
+                  >
+                    <BookOpen className="w-4 h-4 text-cyan-300" />
+                    <span>Panduan Aplikasi</span>
+                  </button>
+                )}
               </div>
             </div>
 
