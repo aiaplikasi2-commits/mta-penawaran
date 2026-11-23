@@ -194,7 +194,11 @@ export async function getAllCustomers(): Promise<Customer[]> {
 
     if (!snap.empty) {
       const cloudList = snap.docs.map((d) => d.data() as Customer);
-      cloudList.sort((a, b) => (a.companyName || '').localeCompare(b.companyName || ''));
+      cloudList.sort((a, b) =>
+        (a.companyName || a.recipientName || '').localeCompare(
+          b.companyName || b.recipientName || ''
+        )
+      );
       // Cleanly synchronize local cache
       const tx = idbDb.transaction('customers', 'readwrite');
       await tx.store.clear();
@@ -216,7 +220,11 @@ export async function getAllCustomers(): Promise<Customer[]> {
 
   const idbDb = await getDb();
   const customers = await idbDb.getAll('customers');
-  return (customers || []).sort((a, b) => (a.companyName || '').localeCompare(b.companyName || ''));
+  return (customers || []).sort((a, b) =>
+    (a.companyName || a.recipientName || '').localeCompare(
+      b.companyName || b.recipientName || ''
+    )
+  );
 }
 
 export async function saveCustomer(customer: Customer): Promise<void> {
@@ -235,12 +243,14 @@ export async function saveCustomer(customer: Customer): Promise<void> {
 export async function saveBatchCustomers(newCustomers: Customer[]): Promise<number> {
   const idbDb = await getDb();
   const existing = await getAllCustomers();
-  const existingNames = new Set(existing.map((c) => c.companyName.trim().toLowerCase()));
+  const existingNames = new Set(
+    existing.map((c) => (c.companyName || c.recipientName || '').trim().toLowerCase())
+  );
 
   let insertedCount = 0;
   const tx = idbDb.transaction('customers', 'readwrite');
   for (const c of newCustomers) {
-    const key = (c.companyName || '').trim().toLowerCase();
+    const key = (c.companyName || c.recipientName || '').trim().toLowerCase();
     if (key && !existingNames.has(key)) {
       await tx.store.put(c);
       existingNames.add(key);
@@ -370,7 +380,7 @@ export async function restoreBackupJSON(data: any): Promise<{
   if (Array.isArray(data.customers)) {
     const tx = db.transaction('customers', 'readwrite');
     for (const cust of data.customers) {
-      if (cust.id && cust.companyName) {
+      if (cust.id && (cust.companyName || cust.recipientName)) {
         await tx.store.put(cust);
         customersCount++;
       }

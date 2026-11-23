@@ -1472,8 +1472,8 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
               {customers
                 .filter(
                   (c) =>
-                    c.companyName.toLowerCase().includes(customerSearch.toLowerCase()) ||
-                    c.recipientName.toLowerCase().includes(customerSearch.toLowerCase())
+                    (c.companyName || '').toLowerCase().includes(customerSearch.toLowerCase()) ||
+                    (c.recipientName || '').toLowerCase().includes(customerSearch.toLowerCase())
                 )
                 .map((c) => (
                   <div
@@ -1481,9 +1481,9 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
                     onClick={() => {
                       setFormData((prev) => ({
                         ...prev,
-                        companyName: c.companyName,
-                        recipientName: c.recipientName,
-                        address: c.address,
+                        companyName: c.companyName || '',
+                        recipientName: c.recipientName || '',
+                        address: c.address || '',
                         city: c.city || prev.city,
                       }));
                       setShowCustomerPicker(false);
@@ -1494,7 +1494,9 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
                     <div className="font-bold text-slate-800">
                       {c.companyName?.trim() || c.recipientName?.trim() || '-'}
                     </div>
-                    <div className="text-slate-600">{c.recipientName || '-'}</div>
+                    {c.companyName?.trim() && (
+                      <div className="text-slate-600">{c.recipientName || '-'}</div>
+                    )}
                     <div className="text-[11px] text-slate-400 truncate">{c.address}</div>
                   </div>
                 ))}

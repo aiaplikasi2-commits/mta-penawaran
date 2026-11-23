@@ -77,8 +77,8 @@ export const DataPelanggan: React.FC<DataPelangganProps> = ({
 
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!companyName.trim()) {
-      onToast('Nama Perusahaan wajib diisi');
+    if (!companyName.trim() && !recipientName.trim()) {
+      onToast('Nama Perusahaan atau Nama Penerima wajib diisi');
       return;
     }
 
@@ -231,10 +231,10 @@ export const DataPelanggan: React.FC<DataPelangganProps> = ({
   // Filtered list
   const filteredCustomers = customers.filter(
     (c) =>
-      c.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.recipientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      c.phone.toLowerCase().includes(searchTerm.toLowerCase())
+      (c.companyName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.recipientName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.city || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (c.phone || '').toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
@@ -352,11 +352,13 @@ export const DataPelanggan: React.FC<DataPelangganProps> = ({
                     </div>
                     <div>
                       <h3 className="font-bold text-xs text-slate-900 line-clamp-1">
-                        {cust.companyName}
+                        {cust.companyName?.trim() || cust.recipientName?.trim() || '-'}
                       </h3>
-                      {cust.recipientName && (
+                      {cust.companyName?.trim() && cust.recipientName?.trim() ? (
                         <p className="text-[11px] text-slate-500">U.p: {cust.recipientName}</p>
-                      )}
+                      ) : !cust.companyName?.trim() && cust.recipientName?.trim() ? (
+                        <p className="text-[11px] text-slate-400">Perorangan / Pribadi</p>
+                      ) : null}
                     </div>
                   </div>
 
@@ -429,11 +431,10 @@ export const DataPelanggan: React.FC<DataPelangganProps> = ({
             <form onSubmit={handleSubmitForm} className="mt-3 space-y-3 flex-1 overflow-y-auto text-xs">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">
-                  Nama Perusahaan <span className="text-red-500">*</span>
+                  Nama Perusahaan
                 </label>
                 <input
                   type="text"
-                  required
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="PT. Takasago International Indonesia"

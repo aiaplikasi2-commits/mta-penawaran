@@ -344,10 +344,11 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
     if (!custId) return;
     const cust = customers.find((c) => c.id === custId);
     if (cust) {
-      setCompanyName(cust.companyName);
-      setRecipientName(cust.recipientName);
-      setAddress(cust.address);
-      onToast(`Data ${cust.companyName} disalin`);
+      const displayTarget = cust.companyName?.trim() || cust.recipientName?.trim() || '';
+      setCompanyName(displayTarget);
+      setRecipientName(cust.recipientName || '');
+      setAddress(cust.address || '');
+      onToast(`Data ${displayTarget} disalin`);
     }
     e.target.value = '';
   };
@@ -358,9 +359,9 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
     if (!letterId) return;
     const letter = letters.find((l) => l.id === letterId);
     if (letter) {
-      setCompanyName(letter.companyName);
-      setRecipientName(letter.recipientName);
-      setAddress(letter.address);
+      setCompanyName(letter.companyName?.trim() || letter.recipientName?.trim() || '');
+      setRecipientName(letter.recipientName || '');
+      setAddress(letter.address || '');
       if (letter.subject && !nomorPo) {
         setNomorPo(letter.subject);
       }
@@ -526,7 +527,7 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
                 </option>
                 {letters.map((l) => (
                   <option key={l.id} value={l.id} className="text-slate-900">
-                    {l.letterNumber} — {l.companyName}
+                    {l.letterNumber} — {l.companyName?.trim() || l.recipientName?.trim() || '-'}
                   </option>
                 ))}
               </select>
@@ -543,7 +544,7 @@ export const FormInvoice: React.FC<FormInvoiceProps> = ({
                 </option>
                 {customers.map((c) => (
                   <option key={c.id} value={c.id} className="text-slate-900">
-                    {c.companyName}
+                    {c.companyName?.trim() || c.recipientName?.trim() || '-'}
                   </option>
                 ))}
               </select>

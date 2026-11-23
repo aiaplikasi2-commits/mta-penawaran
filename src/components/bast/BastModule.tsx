@@ -17,6 +17,8 @@ interface BastModuleProps {
   settings: CompanySettings;
   customers: Customer[];
   letters: LetterData[];
+  initialEditingBast?: BastData | null;
+  onClearInitialBast?: () => void;
   onToast: (msg: string) => void;
 }
 
@@ -24,6 +26,8 @@ export const BastModule: React.FC<BastModuleProps> = ({
   settings,
   customers,
   letters,
+  initialEditingBast,
+  onClearInitialBast,
   onToast,
 }) => {
   const [basts, setBasts] = useState<BastData[]>([]);
@@ -31,6 +35,14 @@ export const BastModule: React.FC<BastModuleProps> = ({
   const [editingBast, setEditingBast] = useState<BastData | null>(null);
   const [previewBast, setPreviewBast] = useState<BastData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (initialEditingBast) {
+      setEditingBast(initialEditingBast);
+      setActiveView('form');
+      onClearInitialBast?.();
+    }
+  }, [initialEditingBast, onClearInitialBast]);
 
   const loadData = async () => {
     try {

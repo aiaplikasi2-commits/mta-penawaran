@@ -255,10 +255,11 @@ export const FormBast: React.FC<FormBastProps> = ({
     if (!custId) return;
     const cust = customers.find((c) => c.id === custId);
     if (cust) {
-      setPihakPertamaPerusahaan(cust.companyName);
-      setPihakPertamaNama(cust.recipientName);
-      setPihakPertamaAlamat(cust.address);
-      onToast(`Data ${cust.companyName} berhasil diterapkan`);
+      const displayTarget = cust.companyName?.trim() || cust.recipientName?.trim() || '';
+      setPihakPertamaPerusahaan(displayTarget);
+      setPihakPertamaNama(cust.recipientName || '');
+      setPihakPertamaAlamat(cust.address || '');
+      onToast(`Data ${displayTarget} berhasil diterapkan`);
     }
     e.target.value = '';
   };
@@ -269,9 +270,10 @@ export const FormBast: React.FC<FormBastProps> = ({
     if (!letterId) return;
     const letter = letters.find((l) => l.id === letterId);
     if (letter) {
-      setPihakPertamaPerusahaan(letter.companyName);
-      setPihakPertamaNama(letter.recipientName);
-      setPihakPertamaAlamat(letter.address);
+      const clientDisplay = letter.companyName?.trim() || letter.recipientName?.trim() || '';
+      setPihakPertamaPerusahaan(clientDisplay);
+      setPihakPertamaNama(letter.recipientName || '');
+      setPihakPertamaAlamat(letter.address || '');
       if (letter.subject && !nomorPo) {
         setNomorPo(letter.subject);
       }
@@ -285,6 +287,40 @@ export const FormBast: React.FC<FormBastProps> = ({
         );
       }
       onToast(`Berhasil mengimpor data dari Surat Penawaran ${letter.letterNumber}!`);
+    }
+    e.target.value = '';
+  };
+
+  // Import from Upload PO (savedPos)
+  const handleImportFromPoSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const poId = e.target.value;
+    if (!poId) return;
+    const po = savedPos.find((p) => p.id === poId);
+    if (po) {
+      setNomorPo(po.nomorPo || '');
+      if (po.buyerCompany) setPihakPertamaPerusahaan(po.buyerCompany);
+      if (po.picName) setPihakPertamaNama(po.picName);
+      if (po.buyerAddress || po.deliveryAddress) {
+        setPihakPertamaAlamat(po.buyerAddress || po.deliveryAddress || '');
+      }
+      if (po.items && po.items.length > 0) {
+        setItems(
+          po.items.map((it: any, idx: number) => {
+            const name = (it.itemName || '').trim();
+            const spec = (it.itemSpec || '').trim();
+            const desc =
+              spec && name && !name.toLowerCase().includes(spec.toLowerCase())
+                ? `${name} ${spec}`
+                : name || spec;
+            return {
+              id: `bast-po-${Date.now()}-${idx}`,
+              name: desc,
+              keterangan: 'Sesuai',
+            };
+          })
+        );
+      }
+      onToast(`Data dari PO ${po.nomorPo || ''} berhasil dimuat ke BAST!`);
     }
     e.target.value = '';
   };
@@ -480,7 +516,25 @@ export const FormBast: React.FC<FormBastProps> = ({
             <h4 className="font-bold text-xs">Impor Cepat</h4>
           </div>
 
-          <div className="flex items-center gap-2 w-full sm:w-auto">
+          <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+            {/* Import from Upload PO */}
+            {savedPos.length > 0 && (
+              <select
+                onChange={handleImportFromPoSelect}
+                className="w-full sm:w-auto px-3 py-2 rounded-xl bg-emerald-500/25 hover:bg-emerald-500/35 border border-emerald-300/40 text-white text-xs font-semibold focus:outline-none cursor-pointer"
+                defaultValue=""
+              >
+                <option value="" disabled className="text-slate-900">
+                  Dari Upload PO...
+                </option>
+                {savedPos.map((po) => (
+                  <option key={po.id} value={po.id} className="text-slate-900">
+                    {po.nomorPo} — {po.buyerCompany} ({po.items?.length || 0} item)
+                  </option>
+                ))}
+              </select>
+            )}
+
             {/* Import from Surat Penawaran */}
             {letters.length > 0 && (
               <select
@@ -493,7 +547,7 @@ export const FormBast: React.FC<FormBastProps> = ({
                 </option>
                 {letters.map((l) => (
                   <option key={l.id} value={l.id} className="text-slate-900">
-                    {l.letterNumber} — {l.companyName}
+                    {l.letterNumber} — {l.companyName?.trim() || l.recipientName?.trim() || '-'}
                   </option>
                 ))}
               </select>
@@ -511,7 +565,9 @@ export const FormBast: React.FC<FormBastProps> = ({
                 </option>
                 {customers.map((c) => (
                   <option key={c.id} value={c.id} className="text-slate-900">
-                    {c.companyName} ({c.recipientName})
+                    {c.companyName?.trim()
+                      ? `${c.companyName}${c.recipientName ? ` (${c.recipientName})` : ''}`
+                      : c.recipientName || '-'}
                   </option>
                 ))}
               </select>

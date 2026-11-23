@@ -197,7 +197,7 @@ A/N ${inv.bankAccountName || settings.bankAccountName || 'CV. MULIA TEKHNIK ABAD
       invoiceNumber: invNumber,
       invoiceDate: today,
       nomorPo: letter.subject || '',
-      companyName: letter.companyName || '',
+      companyName: letter.companyName?.trim() || letter.recipientName?.trim() || '',
       recipientName: letter.recipientName || '',
       address: letter.address || '',
       items: mappedItems,

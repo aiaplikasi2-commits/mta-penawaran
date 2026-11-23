@@ -117,31 +117,46 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
         </div>
       </div>
 
-      {/* 4. THE 6 MAIN NAVIGATION CARDS (2 COLUMNS X 3 ROWS GRID) */}
-      <div className="px-3 pt-3">
+      {/* 4. MENU UTAMA (2 COLUMNS X 3 ROWS + PANDUAN) */}
+      <div className="mx-3 mt-3 p-2.5 sm:p-3 rounded-[26px] bg-gradient-to-b from-[#e8f4ff] via-[#dff0ff] to-[#d6ebff] border border-sky-200/80 shadow-inner">
         <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
           {/* CARD 1: SURAT PENAWARAN */}
           <button
             type="button"
             onClick={() => onSelectModule('penawaran')}
-            className="group relative bg-white hover:bg-blue-50/40 active:scale-[0.98] transition-all duration-150 rounded-2xl p-3 border border-slate-200 shadow-xs flex flex-col justify-between text-left h-[115px] sm:h-[125px] overflow-hidden"
+            className="group relative bg-gradient-to-br from-white via-[#fcfdff] to-[#eff7ff] hover:to-[#e5f2ff] active:scale-[0.98] transition-all duration-150 rounded-[20px] p-2.5 sm:p-3.5 border border-white shadow-[0_8px_20px_-6px_rgba(37,99,235,0.16),0_1px_2px_rgba(15,23,42,0.04)] flex flex-col justify-between text-left min-h-[124px] sm:min-h-[136px] overflow-hidden"
           >
-            <div className="flex items-start gap-2">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="pointer-events-none absolute -bottom-3 -left-3 w-14 h-14 text-sky-300/35"
+            >
+              <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07" />
+              <path d="M9 4l3 2 3-2M9 20l3-2 3 2M4 9l2 3-2 3M20 9l-2 3 2 3" />
+            </svg>
+
+            <div className="relative z-10 flex items-start gap-2 sm:gap-2.5">
               <img
-                src="/icon-penawaran.png"
+                src="/menu-icon-penawaran.png"
                 alt="Surat Penawaran"
-                className="w-12 h-12 object-contain shrink-0 group-hover:scale-105 transition"
+                className="w-12 h-12 sm:w-14 sm:h-14 object-contain shrink-0 group-hover:scale-105 transition-transform duration-200"
               />
-              <div className="min-w-0 flex-1">
-                <h2 className="font-extrabold text-xs sm:text-[13px] text-slate-900 leading-tight">
+              <div className="min-w-0 flex-1 pt-0.5">
+                <h2 className="font-extrabold text-[13px] sm:text-[14px] text-[#0f172a] leading-tight tracking-tight">
                   Surat Penawaran
                 </h2>
+                <p className="text-[10px] sm:text-[11px] text-slate-500 leading-[1.35] mt-1 font-medium">
+                  Buat dan kirim surat penawaran resmi dengan mudah.
+                </p>
               </div>
             </div>
 
-            <div className="self-end mt-auto">
-              <div className="w-6 h-6 rounded-full bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center shadow-xs transition">
-                <ChevronRight className="w-3.5 h-3.5" />
+            <div className="relative z-10 flex justify-end mt-2">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-b from-[#66c7ff] to-[#3495f7] group-hover:from-[#4bb5ff] group-hover:to-[#257de8] text-white flex items-center justify-center shadow-[0_3px_10px_rgba(52,149,247,0.35)] transition">
+                <ChevronRight className="w-4 h-4 stroke-[2.5]" />
               </div>
             </div>
           </button>
@@ -150,24 +165,39 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
           <button
             type="button"
             onClick={() => onSelectModule('invoice')}
-            className="group relative bg-white hover:bg-blue-50/40 active:scale-[0.98] transition-all duration-150 rounded-2xl p-3 border border-slate-200 shadow-xs flex flex-col justify-between text-left h-[115px] sm:h-[125px] overflow-hidden"
+            className="group relative bg-gradient-to-br from-white via-[#fcfdff] to-[#eff7ff] hover:to-[#e5f2ff] active:scale-[0.98] transition-all duration-150 rounded-[20px] p-2.5 sm:p-3.5 border border-white shadow-[0_8px_20px_-6px_rgba(37,99,235,0.16),0_1px_2px_rgba(15,23,42,0.04)] flex flex-col justify-between text-left min-h-[124px] sm:min-h-[136px] overflow-hidden"
           >
-            <div className="flex items-start gap-2">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="pointer-events-none absolute -bottom-3 -left-3 w-14 h-14 text-sky-300/35"
+            >
+              <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07" />
+              <path d="M9 4l3 2 3-2M9 20l3-2 3 2M4 9l2 3-2 3M20 9l-2 3 2 3" />
+            </svg>
+
+            <div className="relative z-10 flex items-start gap-2 sm:gap-2.5">
               <img
-                src="/icon-invoice.png"
+                src="/menu-icon-invoice.png"
                 alt="Invoice"
-                className="w-12 h-12 object-contain shrink-0 group-hover:scale-105 transition"
+                className="w-12 h-12 sm:w-14 sm:h-14 object-contain shrink-0 group-hover:scale-105 transition-transform duration-200"
               />
-              <div className="min-w-0 flex-1">
-                <h2 className="font-extrabold text-xs sm:text-[13px] text-slate-900 leading-tight">
+              <div className="min-w-0 flex-1 pt-0.5">
+                <h2 className="font-extrabold text-[13px] sm:text-[14px] text-[#0f172a] leading-tight tracking-tight">
                   Invoice
                 </h2>
+                <p className="text-[10px] sm:text-[11px] text-slate-500 leading-[1.35] mt-1 font-medium">
+                  Kelola tagihan dan lacak pembayaran client.
+                </p>
               </div>
             </div>
 
-            <div className="self-end mt-auto">
-              <div className="w-6 h-6 rounded-full bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center shadow-xs transition">
-                <ChevronRight className="w-3.5 h-3.5" />
+            <div className="relative z-10 flex justify-end mt-2">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-b from-[#66c7ff] to-[#3495f7] group-hover:from-[#4bb5ff] group-hover:to-[#257de8] text-white flex items-center justify-center shadow-[0_3px_10px_rgba(52,149,247,0.35)] transition">
+                <ChevronRight className="w-4 h-4 stroke-[2.5]" />
               </div>
             </div>
           </button>
@@ -176,24 +206,39 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
           <button
             type="button"
             onClick={() => onSelectModule('bast')}
-            className="group relative bg-white hover:bg-emerald-50/40 active:scale-[0.98] transition-all duration-150 rounded-2xl p-3 border border-slate-200 shadow-xs flex flex-col justify-between text-left h-[115px] sm:h-[125px] overflow-hidden"
+            className="group relative bg-gradient-to-br from-white via-[#fcfdff] to-[#eff7ff] hover:to-[#e5f2ff] active:scale-[0.98] transition-all duration-150 rounded-[20px] p-2.5 sm:p-3.5 border border-white shadow-[0_8px_20px_-6px_rgba(37,99,235,0.16),0_1px_2px_rgba(15,23,42,0.04)] flex flex-col justify-between text-left min-h-[124px] sm:min-h-[136px] overflow-hidden"
           >
-            <div className="flex items-start gap-2">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="pointer-events-none absolute -bottom-3 -left-3 w-14 h-14 text-sky-300/35"
+            >
+              <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07" />
+              <path d="M9 4l3 2 3-2M9 20l3-2 3 2M4 9l2 3-2 3M20 9l-2 3 2 3" />
+            </svg>
+
+            <div className="relative z-10 flex items-start gap-2 sm:gap-2.5">
               <img
-                src="/icon-bast.png"
+                src="/menu-icon-bast.png"
                 alt="BAST"
-                className="w-12 h-12 object-contain shrink-0 group-hover:scale-105 transition"
+                className="w-12 h-12 sm:w-14 sm:h-14 object-contain shrink-0 group-hover:scale-105 transition-transform duration-200"
               />
-              <div className="min-w-0 flex-1">
-                <h2 className="font-extrabold text-xs sm:text-[13px] text-slate-900 leading-tight">
+              <div className="min-w-0 flex-1 pt-0.5">
+                <h2 className="font-extrabold text-[13px] sm:text-[14px] text-[#0f172a] leading-tight tracking-tight">
                   BAST
                 </h2>
+                <p className="text-[10px] sm:text-[11px] text-slate-500 leading-[1.35] mt-1 font-medium">
+                  Berita Acara Serah Terima pekerjaan.
+                </p>
               </div>
             </div>
 
-            <div className="self-end mt-auto">
-              <div className="w-6 h-6 rounded-full bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center shadow-xs transition">
-                <ChevronRight className="w-3.5 h-3.5" />
+            <div className="relative z-10 flex justify-end mt-2">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-b from-[#66c7ff] to-[#3495f7] group-hover:from-[#4bb5ff] group-hover:to-[#257de8] text-white flex items-center justify-center shadow-[0_3px_10px_rgba(52,149,247,0.35)] transition">
+                <ChevronRight className="w-4 h-4 stroke-[2.5]" />
               </div>
             </div>
           </button>
@@ -202,24 +247,39 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
           <button
             type="button"
             onClick={() => onSelectModule('gaji')}
-            className="group relative bg-white hover:bg-sky-50/40 active:scale-[0.98] transition-all duration-150 rounded-2xl p-3 border border-slate-200 shadow-xs flex flex-col justify-between text-left h-[115px] sm:h-[125px] overflow-hidden"
+            className="group relative bg-gradient-to-br from-white via-[#fcfdff] to-[#eff7ff] hover:to-[#e5f2ff] active:scale-[0.98] transition-all duration-150 rounded-[20px] p-2.5 sm:p-3.5 border border-white shadow-[0_8px_20px_-6px_rgba(37,99,235,0.16),0_1px_2px_rgba(15,23,42,0.04)] flex flex-col justify-between text-left min-h-[124px] sm:min-h-[136px] overflow-hidden"
           >
-            <div className="flex items-start gap-2">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="pointer-events-none absolute -bottom-3 -left-3 w-14 h-14 text-sky-300/35"
+            >
+              <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07" />
+              <path d="M9 4l3 2 3-2M9 20l3-2 3 2M4 9l2 3-2 3M20 9l-2 3 2 3" />
+            </svg>
+
+            <div className="relative z-10 flex items-start gap-2 sm:gap-2.5">
               <img
-                src="/icon-gaji.png"
+                src="/menu-icon-gaji.png"
                 alt="Slip Gaji"
-                className="w-12 h-12 object-contain shrink-0 group-hover:scale-105 transition"
+                className="w-12 h-12 sm:w-14 sm:h-14 object-contain shrink-0 group-hover:scale-105 transition-transform duration-200"
               />
-              <div className="min-w-0 flex-1">
-                <h2 className="font-extrabold text-xs sm:text-[13px] text-slate-900 leading-tight">
+              <div className="min-w-0 flex-1 pt-0.5">
+                <h2 className="font-extrabold text-[13px] sm:text-[14px] text-[#0f172a] leading-tight tracking-tight">
                   Slip Gaji
                 </h2>
+                <p className="text-[10px] sm:text-[11px] text-slate-500 leading-[1.35] mt-1 font-medium">
+                  Akses dan cetak rincian gaji bulanan karyawan.
+                </p>
               </div>
             </div>
 
-            <div className="self-end mt-auto">
-              <div className="w-6 h-6 rounded-full bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center shadow-xs transition">
-                <ChevronRight className="w-3.5 h-3.5" />
+            <div className="relative z-10 flex justify-end mt-2">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-b from-[#66c7ff] to-[#3495f7] group-hover:from-[#4bb5ff] group-hover:to-[#257de8] text-white flex items-center justify-center shadow-[0_3px_10px_rgba(52,149,247,0.35)] transition">
+                <ChevronRight className="w-4 h-4 stroke-[2.5]" />
               </div>
             </div>
           </button>
@@ -228,29 +288,44 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
           <button
             type="button"
             onClick={() => onSelectModule('upload-po')}
-            className="group relative bg-white hover:bg-amber-50/40 active:scale-[0.98] transition-all duration-150 rounded-2xl p-3 border border-slate-200 shadow-xs flex flex-col justify-between text-left h-[115px] sm:h-[125px] overflow-hidden"
+            className="group relative bg-gradient-to-br from-white via-[#fcfdff] to-[#eff7ff] hover:to-[#e5f2ff] active:scale-[0.98] transition-all duration-150 rounded-[20px] p-2.5 sm:p-3.5 border border-white shadow-[0_8px_20px_-6px_rgba(37,99,235,0.16),0_1px_2px_rgba(15,23,42,0.04)] flex flex-col justify-between text-left min-h-[124px] sm:min-h-[136px] overflow-hidden"
           >
-            <div className="flex items-start gap-2">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="pointer-events-none absolute -bottom-3 -left-3 w-14 h-14 text-sky-300/35"
+            >
+              <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07" />
+              <path d="M9 4l3 2 3-2M9 20l3-2 3 2M4 9l2 3-2 3M20 9l-2 3 2 3" />
+            </svg>
+
+            <div className="relative z-10 flex items-start gap-2 sm:gap-2.5">
               <img
-                src="/icon-po.png"
+                src="/menu-icon-po.png"
                 alt="Upload PO"
-                className="w-12 h-12 object-contain shrink-0 group-hover:scale-105 transition"
+                className="w-12 h-12 sm:w-14 sm:h-14 object-contain shrink-0 group-hover:scale-105 transition-transform duration-200"
               />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-1">
-                  <h2 className="font-extrabold text-xs sm:text-[13px] text-slate-900 leading-tight">
+              <div className="min-w-0 flex-1 pt-0.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <h2 className="font-extrabold text-[13px] sm:text-[14px] text-[#0f172a] leading-tight tracking-tight">
                     Upload PO
                   </h2>
-                  <span className="px-1 py-0.2 text-[8px] bg-yellow-400 text-blue-950 font-black rounded">
+                  <span className="px-1.5 py-0.5 text-[9px] leading-none bg-gradient-to-r from-[#22d3ee] via-[#3b82f6] to-[#7c3aed] text-white font-black rounded-md shadow-xs tracking-wide">
                     AI
                   </span>
                 </div>
+                <p className="text-[10px] sm:text-[11px] text-slate-500 leading-[1.35] mt-1 font-medium">
+                  Unggah dan proses Purchase Order otomatis.
+                </p>
               </div>
             </div>
 
-            <div className="self-end mt-auto">
-              <div className="w-6 h-6 rounded-full bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center shadow-xs transition">
-                <ChevronRight className="w-3.5 h-3.5" />
+            <div className="relative z-10 flex justify-end mt-2">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-b from-[#66c7ff] to-[#3495f7] group-hover:from-[#4bb5ff] group-hover:to-[#257de8] text-white flex items-center justify-center shadow-[0_3px_10px_rgba(52,149,247,0.35)] transition">
+                <ChevronRight className="w-4 h-4 stroke-[2.5]" />
               </div>
             </div>
           </button>
@@ -259,57 +334,74 @@ export const DashboardBeranda: React.FC<DashboardBerandaProps> = ({
           <button
             type="button"
             onClick={onOpenPengaturan}
-            className="group relative bg-white hover:bg-slate-100/60 active:scale-[0.98] transition-all duration-150 rounded-2xl p-3 border border-slate-200 shadow-xs flex flex-col justify-between text-left h-[115px] sm:h-[125px] overflow-hidden"
+            className="group relative bg-gradient-to-br from-white via-[#fcfdff] to-[#eff7ff] hover:to-[#e5f2ff] active:scale-[0.98] transition-all duration-150 rounded-[20px] p-2.5 sm:p-3.5 border border-white shadow-[0_8px_20px_-6px_rgba(37,99,235,0.16),0_1px_2px_rgba(15,23,42,0.04)] flex flex-col justify-between text-left min-h-[124px] sm:min-h-[136px] overflow-hidden"
           >
-            <div className="flex items-start gap-2">
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              className="pointer-events-none absolute -bottom-3 -left-3 w-14 h-14 text-sky-300/35"
+            >
+              <path d="M12 2v20M2 12h20M4.93 4.93l14.14 14.14M19.07 4.93L4.93 19.07" />
+              <path d="M9 4l3 2 3-2M9 20l3-2 3 2M4 9l2 3-2 3M20 9l-2 3 2 3" />
+            </svg>
+
+            <div className="relative z-10 flex items-start gap-2 sm:gap-2.5">
               <img
-                src="/icon-pengaturan.png"
+                src="/menu-icon-pengaturan.png"
                 alt="Pengaturan"
-                className="w-12 h-12 object-contain shrink-0 group-hover:scale-105 transition"
+                className="w-12 h-12 sm:w-14 sm:h-14 object-contain shrink-0 group-hover:scale-105 transition-transform duration-200"
               />
-              <div className="min-w-0 flex-1">
-                <h2 className="font-extrabold text-xs sm:text-[13px] text-slate-900 leading-tight">
+              <div className="min-w-0 flex-1 pt-0.5">
+                <h2 className="font-extrabold text-[13px] sm:text-[14px] text-[#0f172a] leading-tight tracking-tight">
                   Pengaturan
                 </h2>
-              </div>
-            </div>
-
-            <div className="self-end mt-auto">
-              <div className="w-6 h-6 rounded-full bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center shadow-xs transition">
-                <ChevronRight className="w-3.5 h-3.5" />
-              </div>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      {/* 4B. PANDUAN PENGGUNAAN APLIKASI */}
-      {onOpenPanduan && (
-        <div className="px-3 pt-3">
-          <button
-            type="button"
-            onClick={onOpenPanduan}
-            className="w-full bg-white hover:bg-blue-50/60 active:scale-[0.99] transition-all rounded-2xl p-3 border border-slate-200 shadow-xs flex items-center justify-between gap-3 text-left group"
-          >
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 text-blue-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition">
-                <BookOpen className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <h2 className="font-extrabold text-xs sm:text-[13px] text-slate-900 leading-tight">
-                  Panduan Penggunaan Aplikasi
-                </h2>
-                <p className="text-[11px] text-slate-500 mt-0.5 truncate">
-                  Penjelasan lengkap cara pakai semua menu & fitur terbaru
+                <p className="text-[10px] sm:text-[11px] text-slate-500 leading-[1.35] mt-1 font-medium">
+                  Konfigurasi akun, integrasi, dan keamanan.
                 </p>
               </div>
             </div>
-            <div className="w-6 h-6 rounded-full bg-blue-600 group-hover:bg-blue-700 text-white flex items-center justify-center shadow-xs shrink-0 transition">
-              <ChevronRight className="w-3.5 h-3.5" />
+
+            <div className="relative z-10 flex justify-end mt-2">
+              <div className="w-7 h-7 rounded-full bg-gradient-to-b from-[#66c7ff] to-[#3495f7] group-hover:from-[#4bb5ff] group-hover:to-[#257de8] text-white flex items-center justify-center shadow-[0_3px_10px_rgba(52,149,247,0.35)] transition">
+                <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+              </div>
             </div>
           </button>
         </div>
-      )}
+
+        {/* 4B. PANDUAN PENGGUNAAN APLIKASI */}
+        {onOpenPanduan && (
+          <div className="mt-2.5 sm:mt-3">
+            <button
+              type="button"
+              onClick={onOpenPanduan}
+              className="w-full bg-gradient-to-r from-white via-[#fcfdff] to-[#f0f7ff] hover:to-[#e5f2ff] active:scale-[0.99] transition-all rounded-[20px] p-2.5 sm:p-3.5 border border-white shadow-[0_8px_20px_-6px_rgba(37,99,235,0.16),0_1px_2px_rgba(15,23,42,0.04)] flex items-center justify-between gap-2.5 sm:gap-3 text-left group"
+            >
+              <div className="flex items-center gap-2.5 sm:gap-3 min-w-0">
+                <img
+                  src="/menu-icon-panduan.png"
+                  alt="Panduan Penggunaan Aplikasi"
+                  className="w-14 h-11 sm:w-16 sm:h-12 object-contain shrink-0 group-hover:scale-105 transition-transform duration-200"
+                />
+                <div className="min-w-0">
+                  <h2 className="font-extrabold text-[13px] sm:text-sm text-[#0f172a] leading-tight tracking-tight">
+                    Panduan Penggunaan Aplikasi
+                  </h2>
+                  <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 leading-snug font-medium">
+                    Penjelasan lengkap cara pakai semua menu & fitur terbaru
+                  </p>
+                </div>
+              </div>
+              <div className="w-7 h-7 rounded-full bg-gradient-to-b from-[#66c7ff] to-[#3495f7] group-hover:from-[#4bb5ff] group-hover:to-[#257de8] text-white flex items-center justify-center shadow-[0_3px_10px_rgba(52,149,247,0.35)] shrink-0 transition">
+                <ChevronRight className="w-4 h-4 stroke-[2.5]" />
+              </div>
+            </button>
+          </div>
+        )}
+      </div>
 
       {/* 5. DECORATIVE FOOTER BANNER (MATCHING SCREENSHOT) */}
       <div className="px-3 pt-3.5">

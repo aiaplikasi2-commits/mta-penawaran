@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import type { CompanySettings, Customer, LetterData } from './types/index.ts';
 import {
   getCompanySettings,
@@ -31,10 +31,14 @@ import { DashboardBeranda } from './components/dashboard/DashboardBeranda.tsx';
 import { PoTrackerModal } from './components/dashboard/PoTrackerModal.tsx';
 import { UploadPoModule } from './components/po/UploadPoModule.tsx';
 import { PanduanAplikasi } from './components/PanduanAplikasi.tsx';
-import type { BastData } from './types/bast.ts';
+import type { BastData, BastItem } from './types/bast.ts';
 import type { InvoiceData, InvoiceItem } from './types/invoice.ts';
 import type { PurchaseOrderData } from './types/po.ts';
-import { getAllBasts } from './services/bastDb.ts';
+import {
+  getAllBasts,
+  generateNomorBastBaru,
+  generateHariTerbilang,
+} from './services/bastDb.ts';
 import {
   getAllInvoices,
   generateNomorInvoiceBaru,
@@ -65,10 +69,13 @@ export default function App() {
   const [basts, setBasts] = useState<BastData[]>([]);
   const [invoices, setInvoices] = useState<InvoiceData[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const customersRef = useRef<Customer[]>(customers);
+  customersRef.current = customers;
   const [activeLetterForEdit, setActiveLetterForEdit] = useState<LetterData | null>(null);
   const [previewModalLetter, setPreviewModalLetter] = useState<LetterData | null>(null);
   const [shareModalLetter, setShareModalLetter] = useState<LetterData | null>(null);
   const [preloadedInvoice, setPreloadedInvoice] = useState<InvoiceData | null>(null);
+  const [preloadedBast, setPreloadedBast] = useState<BastData | null>(null);
   const [isPoModalOpen, setIsPoModalOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -215,11 +222,79 @@ export default function App() {
     };
   }, [loadAllData]);
 
+  // Sync Customer automatically from Surat Penawaran (Company or Recipient Name)
+  const syncCustomerFromLetter = useCallback(async (letter: LetterData): Promise<boolean> => {
+    const rawCompany = (letter.companyName || '').trim();
+    const rawRecipient = (letter.recipientName || '').trim();
+    if (!rawCompany && !rawRecipient) return false;
+
+    const rawAddress = (letter.address || '').trim();
+    const rawCity = (letter.city || '').trim();
+    const cleanCity = rawCity && rawCity.toLowerCase() !== 'di tempat' ? rawCity : '';
+
+    const currentList = customersRef.current;
+    const existing = rawCompany
+      ? currentList.find((c) => (c.companyName || '').trim().toLowerCase() === rawCompany.toLowerCase())
+      : currentList.find(
+          (c) =>
+            !(c.companyName || '').trim() &&
+            (c.recipientName || '').trim().toLowerCase() === rawRecipient.toLowerCase()
+        );
+
+    if (existing) {
+      const nextRecipient = existing.recipientName?.trim() || rawRecipient;
+      const nextAddress = existing.address?.trim() || rawAddress;
+      const nextCity = existing.city?.trim() || cleanCity;
+      const changed =
+        nextRecipient !== (existing.recipientName || '') ||
+        nextAddress !== (existing.address || '') ||
+        nextCity !== (existing.city || '');
+
+      if (changed) {
+        const updatedCustomer: Customer = {
+          ...existing,
+          recipientName: nextRecipient,
+          address: nextAddress,
+          city: nextCity,
+        };
+        const updatedList = currentList.map((c) =>
+          c.id === updatedCustomer.id ? updatedCustomer : c
+        );
+        customersRef.current = updatedList;
+        setCustomers(updatedList);
+        await saveCustomer(updatedCustomer);
+      }
+      return false;
+    }
+
+    const newCustomer: Customer = {
+      id: `cust_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+      companyName: rawCompany,
+      recipientName: rawRecipient,
+      address: rawAddress,
+      city: cleanCity,
+      phone: '',
+      email: '',
+      createdAt: new Date().toISOString(),
+    };
+
+    const updatedList = [...currentList, newCustomer].sort((a, b) =>
+      (a.companyName || a.recipientName || '').localeCompare(
+        b.companyName || b.recipientName || ''
+      )
+    );
+    customersRef.current = updatedList;
+    setCustomers(updatedList);
+    await saveCustomer(newCustomer);
+    return true;
+  }, []);
+
   // Save Letter Handler
   const handleSaveLetter = async (letter: LetterData) => {
     try {
       await saveLetter(letter);
       await clearDraftLetter();
+      const addedNewClient = await syncCustomerFromLetter(letter);
 
       // Auto-increment sequence number if this was a new letter using current sequence
       const numMatch = (letter.letterNumber || '').match(/\d+/);
@@ -237,7 +312,11 @@ export default function App() {
 
       await loadAllData();
       setActiveLetterForEdit(letter);
-      showToast(`Surat penawaran ${letter.letterNumber} berhasil disimpan ke perangkat!`);
+      showToast(
+        addedNewClient
+          ? `Surat ${letter.letterNumber} disimpan & otomatis masuk ke Data Client!`
+          : `Surat penawaran ${letter.letterNumber} berhasil disimpan ke perangkat!`
+      );
     } catch (err: any) {
       showToast('Gagal menyimpan surat: ' + (err.message || ''));
     }
@@ -246,6 +325,7 @@ export default function App() {
   // Download PDF Handler
   const handleDownloadPDF = async (letter: LetterData) => {
     try {
+      syncCustomerFromLetter(letter).catch(() => {});
       await downloadLetterPDF(letter, settings);
       showToast('File PDF A4 resmi berhasil diunduh!');
     } catch (err: any) {
@@ -255,11 +335,13 @@ export default function App() {
 
   // Share Modal for choosing WhatsApp or Email with PDF attached
   const handleSharePDF = (letter: LetterData) => {
+    syncCustomerFromLetter(letter).catch(() => {});
     setShareModalLetter(letter);
   };
 
   // Preview Modal Handler
   const handlePreviewPDF = (letter: LetterData) => {
+    syncCustomerFromLetter(letter).catch(() => {});
     setPreviewModalLetter(letter);
   };
 
@@ -316,7 +398,7 @@ export default function App() {
         invoiceNumber: invNumber,
         invoiceDate: today,
         nomorPo: letter.subject || '',
-        companyName: letter.companyName || '',
+        companyName: letter.companyName?.trim() || letter.recipientName?.trim() || '',
         recipientName: letter.recipientName || '',
         address: letter.address || '',
         items: mappedItems,
@@ -423,6 +505,66 @@ export default function App() {
     [invoices.length, settings, handleModeChange, showToast]
   );
 
+  // Convert Purchase Order (Upload PO) directly to BAST
+  const handleConvertPoToBast = useCallback(
+    (po: PurchaseOrderData) => {
+      const today = new Date().toISOString().slice(0, 10);
+      const bastNumber = generateNomorBastBaru(basts);
+
+      const mappedItems: BastItem[] = (po.items || []).map((it, idx) => {
+        const name = (it.itemName || '').trim();
+        const spec = (it.itemSpec || '').trim();
+        const fullName =
+          spec && name && !name.toLowerCase().includes(spec.toLowerCase())
+            ? `${name} ${spec}`
+            : name || spec;
+        const qtySuffix = it.qty && it.qty > 1 ? ` (${it.qty} ${it.satuan || 'unit'})` : '';
+        return {
+          id: `bast-po-item-${Date.now()}-${idx}`,
+          name: `${fullName}${qtySuffix}`.trim(),
+          keterangan: 'Sesuai',
+        };
+      });
+
+      const converted: BastData = {
+        id: `bast-${Date.now()}`,
+        nomorBast: bastNumber,
+        nomorPo: po.nomorPo || '',
+        tanggalBast: today,
+        hariTerbilang: generateHariTerbilang(today),
+        pihakPertamaNama: po.picName || '',
+        pihakPertamaJabatan: '',
+        pihakPertamaPerusahaan: po.buyerCompany || '',
+        pihakPertamaAlamat: po.buyerAddress || po.deliveryAddress || '',
+        pihakKeduaNama: settings.signatoryName || 'MUHAMAD RIDHO',
+        pihakKeduaAlamat:
+          settings.address ||
+          'Jln. Letda Nasir No. 58 Bogor, 16966 Kel. Cikeas Udik Kec. Gunung Putri Bogor',
+        items:
+          mappedItems.length > 0
+            ? mappedItems
+            : [
+                {
+                  id: `bast-po-item-${Date.now()}-1`,
+                  name: '',
+                  keterangan: 'Sesuai',
+                },
+              ],
+        tanggalMulai: today,
+        tanggalSelesai: today,
+        kota: settings.city || 'Bogor',
+        status: 'Selesai',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+
+      setPreloadedBast(converted);
+      handleModeChange('bast');
+      showToast(`Data PO ${po.nomorPo || ''} berhasil ditarik ke BAST!`);
+    },
+    [basts, settings, handleModeChange, showToast]
+  );
+
   // Customer handlers
   const handleSaveCustomer = async (cust: Customer) => {
     await saveCustomer(cust);
@@ -477,6 +619,7 @@ export default function App() {
           updatedAt: new Date().toISOString(),
         };
         await saveLetter(draftLetter);
+        await syncCustomerFromLetter(draftLetter).catch(() => {});
         await loadAllData();
       }
     }
@@ -541,6 +684,8 @@ export default function App() {
             settings={settings}
             customers={customers}
             letters={letters}
+            initialEditingBast={preloadedBast}
+            onClearInitialBast={() => setPreloadedBast(null)}
             onToast={showToast}
           />
         ) : appMode === 'invoice' ? (
@@ -565,10 +710,7 @@ export default function App() {
           <div className="max-w-5xl mx-auto px-3 sm:px-4 py-4">
             <UploadPoModule
               onNavigateToInvoice={handleConvertPoToInvoice}
-              onNavigateToBast={(po) => {
-                handleModeChange('bast');
-                showToast(`Membuka form BAST untuk PO ${po.nomorPo}`);
-              }}
+              onNavigateToBast={handleConvertPoToBast}
             />
           </div>
         ) : appMode === 'panduan' ? (
@@ -722,12 +864,14 @@ export default function App() {
             setIsPoModalOpen(false);
             handleEditLetterFromRekap(letter);
           }}
-          onOpenBast={() => {
+          onOpenBast={(bast) => {
             setIsPoModalOpen(false);
+            setPreloadedBast(bast);
             handleModeChange('bast');
           }}
-          onOpenInvoice={() => {
+          onOpenInvoice={(inv) => {
             setIsPoModalOpen(false);
+            setPreloadedInvoice(inv);
             handleModeChange('invoice');
           }}
         />

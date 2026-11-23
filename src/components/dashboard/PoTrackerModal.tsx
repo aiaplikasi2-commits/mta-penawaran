@@ -48,7 +48,7 @@ export const PoTrackerModal: React.FC<PoTrackerModalProps> = ({
           poNumber: l.subject,
           docType: 'Surat Penawaran',
           docNumber: l.letterNumber || 'Draft',
-          clientName: l.companyName || '-',
+          clientName: l.companyName?.trim() || l.recipientName?.trim() || '-',
           date: l.letterDate || '-',
           sourceDoc: l,
         });

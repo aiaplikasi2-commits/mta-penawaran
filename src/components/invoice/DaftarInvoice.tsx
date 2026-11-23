@@ -383,6 +383,7 @@ export const DaftarInvoice: React.FC<DaftarInvoiceProps> = ({
                     !q ||
                     (l.letterNumber || '').toLowerCase().includes(q) ||
                     (l.companyName || '').toLowerCase().includes(q) ||
+                    (l.recipientName || '').toLowerCase().includes(q) ||
                     (l.subject || '').toLowerCase().includes(q)
                   );
                 })
@@ -400,7 +401,9 @@ export const DaftarInvoice: React.FC<DaftarInvoiceProps> = ({
                       <p className="font-bold text-xs text-slate-900 group-hover:text-blue-900">
                         {l.letterNumber}
                       </p>
-                      <p className="text-[11px] text-slate-600 truncate">{l.companyName}</p>
+                      <p className="text-[11px] text-slate-600 truncate">
+                        {l.companyName?.trim() || l.recipientName?.trim() || '-'}
+                      </p>
                       {l.subject && (
                         <p className="text-[10px] text-slate-400 truncate italic">
                           Perihal: {l.subject}

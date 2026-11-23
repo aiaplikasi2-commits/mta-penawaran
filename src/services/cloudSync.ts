@@ -176,7 +176,11 @@ export function subscribeCustomers(callback: (customers: Customer[]) => void): U
       snapshot.forEach((d) => {
         list.push(d.data() as Customer);
       });
-      list.sort((a, b) => (a.companyName || '').localeCompare(b.companyName || ''));
+      list.sort((a, b) =>
+        (a.companyName || a.recipientName || '').localeCompare(
+          b.companyName || b.recipientName || ''
+        )
+      );
       callback(list);
     },
     (error) => {
