@@ -33,12 +33,15 @@ export const BastModule: React.FC<BastModuleProps> = ({
   const [basts, setBasts] = useState<BastData[]>([]);
   const [activeView, setActiveView] = useState<'daftar' | 'form'>('daftar');
   const [editingBast, setEditingBast] = useState<BastData | null>(null);
+  const [formKey, setFormKey] = useState(0);
   const [previewBast, setPreviewBast] = useState<BastData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (initialEditingBast) {
+      localStorage.removeItem('MTA_BAST_DRAFT');
       setEditingBast(initialEditingBast);
+      setFormKey((k) => k + 1);
       setActiveView('form');
       onClearInitialBast?.();
     }
@@ -74,19 +77,23 @@ export const BastModule: React.FC<BastModuleProps> = ({
   }, []);
 
   const handleCreateNew = () => {
+    localStorage.removeItem('MTA_BAST_DRAFT');
     setEditingBast(null);
+    setFormKey((k) => k + 1);
     setActiveView('form');
   };
 
   const handleEdit = (bast: BastData) => {
+    localStorage.removeItem('MTA_BAST_DRAFT');
     setEditingBast(bast);
+    setFormKey((k) => k + 1);
     setActiveView('form');
   };
 
   const handleDuplicate = async (bast: BastData) => {
     const duplicated: BastData = {
       ...bast,
-      id: `bast-${Date.now()}`,
+      id: `bast_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       nomorBast: generateNomorBastBaru(basts),
       tanggalBast: new Date().toISOString().slice(0, 10),
       status: 'Draft',
@@ -94,13 +101,14 @@ export const BastModule: React.FC<BastModuleProps> = ({
       updatedAt: new Date().toISOString(),
     };
     await saveBast(duplicated);
-    await loadData();
+    setBasts((prev) => [duplicated, ...prev.filter((b) => b.id !== duplicated.id)]);
     onToast(`Berhasil menduplikasi menjadi BAST #${duplicated.nomorBast}`);
   };
 
   const handleSaveBast = async (bast: BastData) => {
     await saveBast(bast);
-    await loadData();
+    localStorage.removeItem('MTA_BAST_DRAFT');
+    setBasts((prev) => [bast, ...prev.filter((b) => b.id !== bast.id)]);
     setActiveView('daftar');
     setEditingBast(null);
     onToast(`Dokumen ${bast.nomorBast} berhasil disimpan!`);
@@ -192,6 +200,7 @@ _Dokumen resmi CV. Mulia Tekhnik Abadi._`;
 
       {activeView === 'form' && (
         <FormBast
+          key={formKey}
           initialBast={editingBast}
           existingBasts={basts}
           settings={settings}

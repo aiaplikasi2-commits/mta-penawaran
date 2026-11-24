@@ -83,6 +83,26 @@ export async function seedBastDatabaseIfNeeded(): Promise<void> {
   }
 }
 
+const PENDING_BASTS_KEY = 'MTA_PENDING_BASTS';
+
+function readPendingBasts(): Set<string> {
+  try {
+    if (typeof window === 'undefined') return new Set();
+    const raw = localStorage.getItem(PENDING_BASTS_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writePendingBasts(set: Set<string>): void {
+  try {
+    if (typeof window === 'undefined') return;
+    if (set.size === 0) localStorage.removeItem(PENDING_BASTS_KEY);
+    else localStorage.setItem(PENDING_BASTS_KEY, JSON.stringify(Array.from(set)));
+  } catch {}
+}
+
 export async function getAllBasts(): Promise<BastData[]> {
   try {
     const { collection, getDocs } = await import('firebase/firestore');
@@ -90,35 +110,52 @@ export async function getAllBasts(): Promise<BastData[]> {
     const snap = await getDocs(collection(db, 'basts'));
     const idbDb = await getBastDb();
 
-    if (!snap.empty) {
-      const cloudList = snap.docs.map((d) => d.data() as BastData);
-      cloudList.sort(
-        (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-      );
+    const pendingIds = readPendingBasts();
+    const localBefore = await idbDb.getAll('basts');
+    const cloudList = snap.empty ? [] : snap.docs.map((d) => d.data() as BastData);
+    const cloudIds = new Set(cloudList.map((b) => b.id));
 
-      // Cleanly sync IDB cache with cloud truth
-      const tx = idbDb.transaction('basts', 'readwrite');
-      await tx.store.clear();
-      for (const b of cloudList) {
-        await tx.store.put(b);
+    const pendingExtras: BastData[] = [];
+    for (const loc of localBefore) {
+      if (pendingIds.has(loc.id) && !cloudIds.has(loc.id)) {
+        pendingExtras.push(loc);
+      } else if (pendingIds.has(loc.id) && cloudIds.has(loc.id)) {
+        pendingIds.delete(loc.id);
       }
-      await tx.done;
-
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('MTA_BAST_INIT', 'true');
-      }
-      return cloudList;
-    } else {
-      // Cloud database has 0 basts (user deleted all basts)
-      const tx = idbDb.transaction('basts', 'readwrite');
-      await tx.store.clear();
-      await tx.done;
-
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('MTA_BAST_INIT', 'true');
-      }
-      return [];
     }
+    writePendingBasts(pendingIds);
+
+    if (pendingExtras.length > 0) {
+      import('./cloudSync.ts')
+        .then(({ saveBastOnline }) => {
+          pendingExtras.forEach((item) => {
+            saveBastOnline(item)
+              .then(() => {
+                const s = readPendingBasts();
+                s.delete(item.id);
+                writePendingBasts(s);
+              })
+              .catch(() => {});
+          });
+        })
+        .catch(() => {});
+    }
+
+    const merged = [...cloudList, ...pendingExtras].sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+
+    const tx = idbDb.transaction('basts', 'readwrite');
+    await tx.store.clear();
+    for (const b of merged) {
+      await tx.store.put(b);
+    }
+    await tx.done;
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('MTA_BAST_INIT', 'true');
+    }
+    return merged;
   } catch (e) {
     console.warn('Fallback to local BAST cache:', e);
   }
@@ -154,16 +191,27 @@ export async function saveBast(bast: BastData): Promise<void> {
   const idbDb = await getBastDb();
   await idbDb.put('basts', toSave);
 
+  const pending = readPendingBasts();
+  pending.add(toSave.id);
+  writePendingBasts(pending);
+
   // Sync to Firestore Cloud Database
   try {
     const { saveBastOnline } = await import('./cloudSync.ts');
     await saveBastOnline(toSave);
+    const updatedPending = readPendingBasts();
+    updatedPending.delete(toSave.id);
+    writePendingBasts(updatedPending);
   } catch (err) {
     console.warn('Online sync queued for BAST:', err);
   }
 }
 
 export async function deleteBast(id: string): Promise<void> {
+  const pending = readPendingBasts();
+  pending.delete(id);
+  writePendingBasts(pending);
+
   const idbDb = await getBastDb();
   await idbDb.delete('basts', id);
 

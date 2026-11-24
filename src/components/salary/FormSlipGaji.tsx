@@ -57,6 +57,9 @@ export const FormSlipGaji: React.FC<FormSlipGajiProps> = ({
   const todayFormatted = now.toISOString().slice(0, 10);
 
   // Form State
+  const [slipId, setSlipId] = useState<string>(
+    () => `slip_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+  );
   const [selectedKaryawanId, setSelectedKaryawanId] = useState<string>('');
   const [nama, setNama] = useState<string>('');
   const [jabatan, setJabatan] = useState<string>('');
@@ -145,12 +148,12 @@ export const FormSlipGaji: React.FC<FormSlipGajiProps> = ({
 
   // Build current slip object
   const currentSlipObject: SlipGaji = {
-    id: `slip-${Date.now()}`,
+    id: slipId,
     nomorSlip: nomorSlip || '01',
     tanggal,
     periodeBulan,
     tahun,
-    karyawanId: selectedKaryawanId || undefined,
+    ...(selectedKaryawanId ? { karyawanId: selectedKaryawanId } : {}),
     nama: nama || 'Karyawan',
     jabatan: jabatan || 'Staff',
     nik: nik || '-',
@@ -176,6 +179,7 @@ export const FormSlipGaji: React.FC<FormSlipGajiProps> = ({
 
   const handleReset = () => {
     if (confirm('Kosongkan semua data isian slip gaji ini?')) {
+      setSlipId(`slip_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
       setSelectedKaryawanId('');
       setNama('');
       setJabatan('');

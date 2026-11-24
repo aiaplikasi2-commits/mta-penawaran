@@ -192,6 +192,27 @@ export async function seedSalaryDatabaseIfNeeded(): Promise<void> {
   }
 }
 
+const PENDING_KARYAWAN_KEY = 'MTA_PENDING_KARYAWAN';
+const PENDING_SLIPS_KEY = 'MTA_PENDING_SLIPS';
+
+function readPendingSalary(key: string): Set<string> {
+  try {
+    if (typeof window === 'undefined') return new Set();
+    const raw = localStorage.getItem(key);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writePendingSalary(key: string, set: Set<string>): void {
+  try {
+    if (typeof window === 'undefined') return;
+    if (set.size === 0) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(Array.from(set)));
+  } catch {}
+}
+
 // Karyawan CRUD
 export async function getAllKaryawan(): Promise<Karyawan[]> {
   try {
@@ -200,30 +221,32 @@ export async function getAllKaryawan(): Promise<Karyawan[]> {
     const snap = await getDocs(collection(db, 'karyawan'));
     const idbDb = await getSalaryDb();
 
-    if (!snap.empty) {
-      const cloudList = snap.docs.map((d) => d.data() as Karyawan);
-      cloudList.sort((a, b) => a.nama.localeCompare(b.nama));
-      // Cleanly sync IDB with cloud
-      const tx = idbDb.transaction('karyawan', 'readwrite');
-      await tx.store.clear();
-      for (const k of cloudList) {
-        await tx.store.put(k);
+    const pendingIds = readPendingSalary(PENDING_KARYAWAN_KEY);
+    const localBefore = await idbDb.getAll('karyawan');
+    const cloudList = snap.empty ? [] : snap.docs.map((d) => d.data() as Karyawan);
+    const cloudIds = new Set(cloudList.map((k) => k.id));
+
+    const pendingExtras: Karyawan[] = [];
+    for (const loc of localBefore) {
+      if (pendingIds.has(loc.id) && !cloudIds.has(loc.id)) {
+        pendingExtras.push(loc);
+      } else if (pendingIds.has(loc.id) && cloudIds.has(loc.id)) {
+        pendingIds.delete(loc.id);
       }
-      await tx.done;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('MTA_SALARY_INIT', 'true');
-      }
-      return cloudList;
-    } else {
-      // 0 karyawan in cloud
-      const tx = idbDb.transaction('karyawan', 'readwrite');
-      await tx.store.clear();
-      await tx.done;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('MTA_SALARY_INIT', 'true');
-      }
-      return [];
     }
+    writePendingSalary(PENDING_KARYAWAN_KEY, pendingIds);
+
+    const merged = [...cloudList, ...pendingExtras].sort((a, b) => a.nama.localeCompare(b.nama));
+    const tx = idbDb.transaction('karyawan', 'readwrite');
+    await tx.store.clear();
+    for (const k of merged) {
+      await tx.store.put(k);
+    }
+    await tx.done;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('MTA_SALARY_INIT', 'true');
+    }
+    return merged;
   } catch (e) {
     console.warn('Fallback to local karyawan cache:', e);
   }
@@ -238,15 +261,26 @@ export async function saveKaryawan(karyawan: Karyawan): Promise<void> {
   const db = await getSalaryDb();
   await db.put('karyawan', karyawan);
 
+  const pending = readPendingSalary(PENDING_KARYAWAN_KEY);
+  pending.add(karyawan.id);
+  writePendingSalary(PENDING_KARYAWAN_KEY, pending);
+
   try {
     const { saveKaryawanOnline } = await import('./cloudSync.ts');
     await saveKaryawanOnline(karyawan);
+    const updatedPending = readPendingSalary(PENDING_KARYAWAN_KEY);
+    updatedPending.delete(karyawan.id);
+    writePendingSalary(PENDING_KARYAWAN_KEY, updatedPending);
   } catch (err) {
     console.warn('Online sync queued for karyawan:', err);
   }
 }
 
 export async function deleteKaryawan(id: string): Promise<void> {
+  const pending = readPendingSalary(PENDING_KARYAWAN_KEY);
+  pending.delete(id);
+  writePendingSalary(PENDING_KARYAWAN_KEY, pending);
+
   const db = await getSalaryDb();
   await db.delete('karyawan', id);
 
@@ -266,32 +300,51 @@ export async function getAllSlips(): Promise<SlipGaji[]> {
     const snap = await getDocs(collection(db, 'slips'));
     const idbDb = await getSalaryDb();
 
-    if (!snap.empty) {
-      const cloudList = snap.docs.map((d) => d.data() as SlipGaji);
-      cloudList.sort(
-        (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-      );
-      // Cleanly sync IDB with cloud
-      const tx = idbDb.transaction('slips', 'readwrite');
-      await tx.store.clear();
-      for (const s of cloudList) {
-        await tx.store.put(s);
+    const pendingIds = readPendingSalary(PENDING_SLIPS_KEY);
+    const localBefore = await idbDb.getAll('slips');
+    const cloudList = snap.empty ? [] : snap.docs.map((d) => d.data() as SlipGaji);
+    const cloudIds = new Set(cloudList.map((s) => s.id));
+
+    const pendingExtras: SlipGaji[] = [];
+    for (const loc of localBefore) {
+      if (pendingIds.has(loc.id) && !cloudIds.has(loc.id)) {
+        pendingExtras.push(loc);
+      } else if (pendingIds.has(loc.id) && cloudIds.has(loc.id)) {
+        pendingIds.delete(loc.id);
       }
-      await tx.done;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('MTA_SALARY_INIT', 'true');
-      }
-      return cloudList;
-    } else {
-      // 0 slips in cloud
-      const tx = idbDb.transaction('slips', 'readwrite');
-      await tx.store.clear();
-      await tx.done;
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('MTA_SALARY_INIT', 'true');
-      }
-      return [];
     }
+    writePendingSalary(PENDING_SLIPS_KEY, pendingIds);
+
+    if (pendingExtras.length > 0) {
+      import('./cloudSync.ts')
+        .then(({ saveSlipOnline }) => {
+          pendingExtras.forEach((item) => {
+            saveSlipOnline(item)
+              .then(() => {
+                const s = readPendingSalary(PENDING_SLIPS_KEY);
+                s.delete(item.id);
+                writePendingSalary(PENDING_SLIPS_KEY, s);
+              })
+              .catch(() => {});
+          });
+        })
+        .catch(() => {});
+    }
+
+    const merged = [...cloudList, ...pendingExtras].sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+
+    const tx = idbDb.transaction('slips', 'readwrite');
+    await tx.store.clear();
+    for (const s of merged) {
+      await tx.store.put(s);
+    }
+    await tx.done;
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('MTA_SALARY_INIT', 'true');
+    }
+    return merged;
   } catch (e) {
     console.warn('Fallback to local slips cache:', e);
   }
@@ -327,15 +380,26 @@ export async function saveSlip(slip: SlipGaji): Promise<void> {
   const db = await getSalaryDb();
   await db.put('slips', toSave);
 
+  const pending = readPendingSalary(PENDING_SLIPS_KEY);
+  pending.add(toSave.id);
+  writePendingSalary(PENDING_SLIPS_KEY, pending);
+
   try {
     const { saveSlipOnline } = await import('./cloudSync.ts');
     await saveSlipOnline(toSave);
+    const updatedPending = readPendingSalary(PENDING_SLIPS_KEY);
+    updatedPending.delete(toSave.id);
+    writePendingSalary(PENDING_SLIPS_KEY, updatedPending);
   } catch (err) {
     console.warn('Online sync queued for slip:', err);
   }
 }
 
 export async function deleteSlip(id: string): Promise<void> {
+  const pending = readPendingSalary(PENDING_SLIPS_KEY);
+  pending.delete(id);
+  writePendingSalary(PENDING_SLIPS_KEY, pending);
+
   const db = await getSalaryDb();
   await db.delete('slips', id);
 

@@ -71,6 +71,28 @@ if (typeof window !== 'undefined') {
   }
 }
 
+/**
+ * Recursively remove undefined fields so Firestore setDoc never rejects
+ * ("Unsupported field value: undefined").
+ */
+function stripUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item) => item !== undefined)
+      .map((item) => stripUndefined(item)) as unknown as T;
+  }
+  if (value !== null && typeof value === 'object') {
+    const result: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (v !== undefined) {
+        result[k] = stripUndefined(v);
+      }
+    }
+    return result as T;
+  }
+  return value;
+}
+
 // ----------------------------------------------------------------------
 // 1. SETTINGS
 // ----------------------------------------------------------------------
@@ -101,10 +123,10 @@ export async function saveSettingsOnline(settings: CompanySettings): Promise<voi
   notifySyncState('MENYINKRONKAN', 'Menyimpan pengaturan ke cloud database...');
   try {
     const docRef = doc(db, 'settings', 'company_settings');
-    const payload = {
+    const payload = stripUndefined({
       ...settings,
       updatedAt: new Date().toISOString(),
-    };
+    });
     await setDoc(docRef, payload, { merge: true });
     notifySyncState('TERSINKRON', 'Pengaturan berhasil tersinkron ke semua perangkat');
   } catch (error) {
@@ -140,10 +162,10 @@ export async function saveLetterOnline(letter: LetterData): Promise<void> {
   notifySyncState('MENYINKRONKAN', 'Menyimpan surat penawaran ke cloud...');
   try {
     const docRef = doc(db, 'letters', letter.id);
-    const payload = {
+    const payload = stripUndefined({
       ...letter,
       updatedAt: new Date().toISOString(),
-    };
+    });
     await setDoc(docRef, payload, { merge: true });
     notifySyncState('TERSINKRON', 'Surat penawaran tersimpan di cloud database');
   } catch (error) {
@@ -194,7 +216,7 @@ export async function saveCustomerOnline(customer: Customer): Promise<void> {
   notifySyncState('MENYINKRONKAN', 'Menyimpan data client ke cloud...');
   try {
     const docRef = doc(db, 'customers', customer.id);
-    await setDoc(docRef, customer, { merge: true });
+    await setDoc(docRef, stripUndefined(customer), { merge: true });
     notifySyncState('TERSINKRON', 'Data client tersinkron ke semua perangkat');
   } catch (error) {
     notifySyncState('GAGAL SINKRON', 'Gagal menyimpan data client');
@@ -240,10 +262,10 @@ export async function saveBastOnline(bast: BastData): Promise<void> {
   notifySyncState('MENYINKRONKAN', 'Menyimpan BAST ke cloud...');
   try {
     const docRef = doc(db, 'basts', bast.id);
-    const payload = {
+    const payload = stripUndefined({
       ...bast,
       updatedAt: new Date().toISOString(),
-    };
+    });
     await setDoc(docRef, payload, { merge: true });
     notifySyncState('TERSINKRON', 'BAST berhasil tersimpan di cloud database');
   } catch (error) {
@@ -290,10 +312,10 @@ export async function saveInvoiceOnline(invoice: InvoiceData): Promise<void> {
   notifySyncState('MENYINKRONKAN', 'Menyimpan Invoice ke cloud...');
   try {
     const docRef = doc(db, 'invoices', invoice.id);
-    const payload = {
+    const payload = stripUndefined({
       ...invoice,
       updatedAt: new Date().toISOString(),
-    };
+    });
     await setDoc(docRef, payload, { merge: true });
     notifySyncState('TERSINKRON', 'Invoice tersimpan di cloud database');
   } catch (error) {
@@ -340,7 +362,7 @@ export async function saveKaryawanOnline(karyawan: Karyawan): Promise<void> {
   notifySyncState('MENYINKRONKAN', 'Menyimpan data karyawan ke cloud...');
   try {
     const docRef = doc(db, 'karyawan', karyawan.id);
-    await setDoc(docRef, karyawan, { merge: true });
+    await setDoc(docRef, stripUndefined(karyawan), { merge: true });
     notifySyncState('TERSINKRON', 'Data karyawan tersinkron');
   } catch (error) {
     notifySyncState('GAGAL SINKRON', 'Gagal menyimpan karyawan');
@@ -383,10 +405,10 @@ export async function saveSlipOnline(slip: SlipGaji): Promise<void> {
   notifySyncState('MENYINKRONKAN', 'Menyimpan slip gaji ke cloud...');
   try {
     const docRef = doc(db, 'slips', slip.id);
-    const payload = {
+    const payload = stripUndefined({
       ...slip,
       updatedAt: new Date().toISOString(),
-    };
+    });
     await setDoc(docRef, payload, { merge: true });
     notifySyncState('TERSINKRON', 'Slip gaji tersimpan di cloud database');
   } catch (error) {
@@ -434,10 +456,14 @@ export async function savePurchaseOrderOnline(po: PurchaseOrderData): Promise<vo
   notifySyncState('MENYINKRONKAN', `Menyimpan PO ${po.nomorPo} ke cloud database...`);
   try {
     const docRef = doc(db, 'purchase_orders', po.id);
-    const payload = {
+    const payload = stripUndefined({
       ...po,
       updatedAt: new Date().toISOString(),
-    };
+    });
+    // Guard Firestore 1MB document limit for large PDF/image base64 data URLs
+    if (payload.fileDataUrl && JSON.stringify(payload).length > 850000) {
+      delete payload.fileDataUrl;
+    }
     await setDoc(docRef, payload, { merge: true });
     notifySyncState('TERSINKRON', `PO ${po.nomorPo} tersimpan di cloud database`);
   } catch (error) {

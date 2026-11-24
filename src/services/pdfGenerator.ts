@@ -179,7 +179,13 @@ export async function generateLetterPDF(
     doc.text(addressLines, marginLeft, currentY);
     currentY += addressLines.length * idLineH;
   }
-  doc.text(letter.city ? `Di ${letter.city}` : 'Di Tempat', marginLeft, currentY);
+  const trimmedCity = (letter.city || '').trim();
+  const formattedCity = !trimmedCity
+    ? 'Di Tempat'
+    : /^di\s+/i.test(trimmedCity)
+      ? trimmedCity
+      : `Di ${trimmedCity}`;
+  doc.text(formattedCity, marginLeft, currentY);
   currentY += isUltraCompact ? 4 : 5.5;
 
   // 5. PARAGRAF PEMBUKA

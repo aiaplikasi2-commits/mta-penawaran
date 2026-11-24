@@ -172,7 +172,13 @@ export const LetterPreview: React.FC<LetterPreviewProps> = ({ letter, settings }
             {letter.recipientName && <div>{letter.recipientName}</div>}
             {letter.companyName && <div className="font-semibold">{letter.companyName}</div>}
             {letter.address && <div className="whitespace-pre-line">{letter.address}</div>}
-            <div>{letter.city ? `Di ${letter.city}` : 'Di Tempat'}</div>
+            <div>
+              {!letter.city?.trim()
+                ? 'Di Tempat'
+                : /^di\s+/i.test(letter.city.trim())
+                  ? letter.city.trim()
+                  : `Di ${letter.city.trim()}`}
+            </div>
           </div>
 
           {/* 5. PEMBUKA SURAT */}

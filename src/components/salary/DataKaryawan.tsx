@@ -85,7 +85,9 @@ export const DataKaryawan: React.FC<DataKaryawanProps> = ({
     }
 
     const toSave: Karyawan = {
-      id: editingKaryawan ? editingKaryawan.id : `emp-${Date.now()}`,
+      id: editingKaryawan
+        ? editingKaryawan.id
+        : `emp_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       nama: formNama.trim().toUpperCase(),
       jabatan: formJabatan.trim(),
       nik: formNik.trim() || '-',

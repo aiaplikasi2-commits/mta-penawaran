@@ -43,6 +43,15 @@ export const PoVerificationForm: React.FC<PoVerificationFormProps> = ({
   // Sync when initialData changes
   useEffect(() => {
     setFormData(initialData);
+    setPpnPreset(
+      initialData.ppnPercent === 11
+        ? '11'
+        : initialData.ppnPercent === 12
+        ? '12'
+        : initialData.ppnPercent === 0
+        ? '0'
+        : 'custom'
+    );
   }, [initialData]);
 
   // Check duplicate PO number

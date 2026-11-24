@@ -10,8 +10,6 @@ import {
   saveCustomer,
   saveBatchCustomers,
   deleteCustomer,
-  getDraftLetter,
-  saveDraftLetter,
   clearDraftLetter,
   DEFAULT_SETTINGS,
 } from './services/db.ts';
@@ -72,6 +70,7 @@ export default function App() {
   const customersRef = useRef<Customer[]>(customers);
   customersRef.current = customers;
   const [activeLetterForEdit, setActiveLetterForEdit] = useState<LetterData | null>(null);
+  const [letterFormKey, setLetterFormKey] = useState(0);
   const [previewModalLetter, setPreviewModalLetter] = useState<LetterData | null>(null);
   const [shareModalLetter, setShareModalLetter] = useState<LetterData | null>(null);
   const [preloadedInvoice, setPreloadedInvoice] = useState<InvoiceData | null>(null);
@@ -86,6 +85,11 @@ export default function App() {
       window.history.pushState({ mode, tab: nextTab || activeTab }, '', window.location.pathname);
     }
     setAppMode(mode);
+    if (nextTab === 'tambah') {
+      clearDraftLetter().catch(() => {});
+      setActiveLetterForEdit(null);
+      setLetterFormKey((k) => k + 1);
+    }
     if (nextTab) setActiveTab(nextTab);
     localStorage.setItem('MTA_APP_MODE', mode);
   }, [appMode, activeTab]);
@@ -167,18 +171,12 @@ export default function App() {
       setCustomers(loadedCustomers);
       setBasts(loadedBasts);
       setInvoices(loadedInvoices);
-
-      // Check draft if not editing
-      const draft = await getDraftLetter();
-      if (draft && !activeLetterForEdit) {
-        setActiveLetterForEdit(draft);
-      }
     } catch (err) {
       console.error('Error loading data from IndexedDB:', err);
     } finally {
       setIsLoading(false);
     }
-  }, [activeLetterForEdit]);
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -292,12 +290,30 @@ export default function App() {
   // Save Letter Handler
   const handleSaveLetter = async (letter: LetterData) => {
     try {
-      await saveLetter(letter);
+      const nowIso = new Date().toISOString();
+      const savedLetter: LetterData = {
+        ...letter,
+        createdAt: letter.createdAt || nowIso,
+        updatedAt: nowIso,
+      };
+
+      // Optimistically upsert in local state immediately so all saved letters stay visible
+      setLetters((prev) => {
+        const exists = prev.some((l) => l.id === savedLetter.id);
+        const next = exists
+          ? prev.map((l) => (l.id === savedLetter.id ? savedLetter : l))
+          : [savedLetter, ...prev];
+        return next.sort(
+          (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+        );
+      });
+
+      await saveLetter(savedLetter);
       await clearDraftLetter();
-      const addedNewClient = await syncCustomerFromLetter(letter);
+      const addedNewClient = await syncCustomerFromLetter(savedLetter);
 
       // Auto-increment sequence number if this was a new letter using current sequence
-      const numMatch = (letter.letterNumber || '').match(/\d+/);
+      const numMatch = (savedLetter.letterNumber || '').match(/\d+/);
       if (numMatch) {
         const usedSeq = parseInt(numMatch[0]);
         if (usedSeq >= (settings.nextSequenceNumber ?? 16)) {
@@ -310,12 +326,11 @@ export default function App() {
         }
       }
 
-      await loadAllData();
-      setActiveLetterForEdit(letter);
+      setActiveLetterForEdit(savedLetter);
       showToast(
         addedNewClient
-          ? `Surat ${letter.letterNumber} disimpan & otomatis masuk ke Data Client!`
-          : `Surat penawaran ${letter.letterNumber} berhasil disimpan ke perangkat!`
+          ? `Surat ${savedLetter.letterNumber} disimpan & otomatis masuk ke Data Client!`
+          : `Surat penawaran ${savedLetter.letterNumber} berhasil disimpan ke perangkat!`
       );
     } catch (err: any) {
       showToast('Gagal menyimpan surat: ' + (err.message || ''));
@@ -365,15 +380,16 @@ export default function App() {
 
   // Edit Letter Trigger from Rekap
   const handleEditLetterFromRekap = (letter: LetterData) => {
+    clearDraftLetter().catch(() => {});
     setActiveLetterForEdit(letter);
+    setLetterFormKey((k) => k + 1);
     setActiveTab('tambah');
   };
 
   // Convert Letter to Invoice
   const handleConvertToInvoice = useCallback(
     (letter: LetterData) => {
-      const nextSeq = invoices.length + 1;
-      const invNumber = generateNomorInvoiceBaru(nextSeq);
+      const invNumber = generateNomorInvoiceBaru(invoices);
       const today = new Date().toISOString().slice(0, 10);
 
       const mappedItems: InvoiceItem[] = (letter.items || []).map((it, idx) => ({
@@ -394,7 +410,7 @@ export default function App() {
       const total = Math.max(0, subtotal - tradeInVal);
 
       const converted: InvoiceData = {
-        id: `inv-${Date.now()}`,
+        id: `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         invoiceNumber: invNumber,
         invoiceDate: today,
         nomorPo: letter.subject || '',
@@ -425,14 +441,13 @@ export default function App() {
       handleModeChange('invoice');
       showToast(`Data penawaran ${letter.letterNumber} dimuat ke Invoice!`);
     },
-    [invoices.length, settings, handleModeChange, showToast]
+    [invoices, settings, handleModeChange, showToast]
   );
 
   // Convert Purchase Order (Upload PO) directly to Invoice
   const handleConvertPoToInvoice = useCallback(
     (po: PurchaseOrderData) => {
-      const nextSeq = invoices.length + 1;
-      const invNumber = generateNomorInvoiceBaru(nextSeq);
+      const invNumber = generateNomorInvoiceBaru(invoices);
       const today = new Date().toISOString().slice(0, 10);
 
       const mappedItems: InvoiceItem[] = (po.items || []).map((it, idx) => {
@@ -459,7 +474,7 @@ export default function App() {
       const total = Math.max(0, subtotal);
 
       const converted: InvoiceData = {
-        id: `inv-${Date.now()}`,
+        id: `inv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         invoiceNumber: invNumber,
         invoiceDate: today,
         nomorPo: po.nomorPo || '',
@@ -502,7 +517,7 @@ export default function App() {
       handleModeChange('invoice');
       showToast(`Data PO ${po.nomorPo || ''} berhasil ditarik ke Invoice!`);
     },
-    [invoices.length, settings, handleModeChange, showToast]
+    [invoices, settings, handleModeChange, showToast]
   );
 
   // Convert Purchase Order (Upload PO) directly to BAST
@@ -527,7 +542,7 @@ export default function App() {
       });
 
       const converted: BastData = {
-        id: `bast-${Date.now()}`,
+        id: `bast_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
         nomorBast: bastNumber,
         nomorPo: po.nomorPo || '',
         tanggalBast: today,
@@ -594,34 +609,21 @@ export default function App() {
     setSettings(newSettings);
   };
 
-  // Reset to brand new letter
+  // Reset to brand new empty letter
   const handleResetToNewLetter = async () => {
     await clearDraftLetter();
     setActiveLetterForEdit(null);
+    setLetterFormKey((k) => k + 1);
     setActiveTab('tambah');
     showToast('Formulir surat baru disiapkan');
   };
 
-  // When leaving 'tambah' tab, ensure current draft is saved as Draft
+  // Tab switch handler for Surat Penawaran
   const handleTabChange = async (nextTab: NavTab) => {
-    if (activeTab === 'tambah' && nextTab !== 'tambah') {
-      const draft = await getDraftLetter();
-      if (
-        draft &&
-        (draft.subject.trim() ||
-          draft.companyName.trim() ||
-          draft.recipientName.trim() ||
-          draft.items.some((i) => i.description.trim()))
-      ) {
-        const draftLetter = {
-          ...draft,
-          status: 'Draft' as const,
-          updatedAt: new Date().toISOString(),
-        };
-        await saveLetter(draftLetter);
-        await syncCustomerFromLetter(draftLetter).catch(() => {});
-        await loadAllData();
-      }
+    if (nextTab === 'tambah') {
+      await clearDraftLetter();
+      setActiveLetterForEdit(null);
+      setLetterFormKey((k) => k + 1);
     }
     setActiveTab(nextTab);
   };
@@ -782,6 +784,7 @@ export default function App() {
 
             {activeTab === 'tambah' && (
               <FormTambahSurat
+                key={letterFormKey}
                 initialLetter={activeLetterForEdit}
                 settings={settings}
                 customers={customers}

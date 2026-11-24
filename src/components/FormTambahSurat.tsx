@@ -98,7 +98,7 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
       recipientName: '',
       companyName: '',
       address: '',
-      city: 'Di Tempat',
+      city: '',
       openingParagraph:
         'Bersama ini kami mengajukan surat penawaran harga, berikut ini daftar harga yang kami tawarkan :',
       closingParagraph:
@@ -135,6 +135,9 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
   const [formData, setFormData] = useState<LetterData>(createInitialState);
   const formDataRef = useRef<LetterData>(formData);
   formDataRef.current = formData;
+  const initialSnapshotRef = useRef<string>(JSON.stringify(formData));
+  const isSavedOrClearedRef = useRef<boolean>(false);
+  const isEditingExistingRef = useRef<boolean>(Boolean(initialLetter));
 
   // Check Web Speech API availability on mount
   useEffect(() => {
@@ -144,10 +147,18 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
     }
   }, []);
 
-  // Sync if initialLetter prop updates
+  // Sync if initialLetter prop updates (including reset to null)
   useEffect(() => {
+    isEditingExistingRef.current = Boolean(initialLetter);
+    isSavedOrClearedRef.current = false;
     if (initialLetter) {
-      setFormData({ ...initialLetter });
+      const cloned = { ...initialLetter };
+      setFormData(cloned);
+      initialSnapshotRef.current = JSON.stringify(cloned);
+    } else {
+      const fresh = createInitialState();
+      setFormData(fresh);
+      initialSnapshotRef.current = JSON.stringify(fresh);
     }
   }, [initialLetter]);
 
@@ -161,16 +172,20 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
     ) {
       const seq = settings.nextSequenceNumber ?? 16;
       const syncedNumber = formatLetterNumber(seq, formData.letterDate, settings.numberFormat);
-      setFormData((prev) => ({
-        ...prev,
-        letterNumber: syncedNumber,
-      }));
+      setFormData((prev) => {
+        if (prev.letterNumber === syncedNumber) return prev;
+        const next = { ...prev, letterNumber: syncedNumber };
+        initialSnapshotRef.current = JSON.stringify(next);
+        return next;
+      });
     }
   }, [settings.nextSequenceNumber, settings.numberFormat, initialLetter]);
 
-  // REQUIREMENT 2: AUTO-SAVE AS DRAFT ON ACCIDENTAL BACK OR EXIT
-  // 1. Debounced background auto-save to IndexedDB as Draft
+  // Debounced local draft backup ONLY while actively composing a new unsaved letter
   useEffect(() => {
+    if (isSavedOrClearedRef.current || isEditingExistingRef.current) return;
+    if (JSON.stringify(formData) === initialSnapshotRef.current) return;
+
     const hasContent =
       formData.subject.trim() ||
       formData.companyName.trim() ||
@@ -179,6 +194,7 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
 
     if (hasContent) {
       const timer = setTimeout(async () => {
+        if (isSavedOrClearedRef.current || isEditingExistingRef.current) return;
         try {
           const draftToSave = {
             ...formData,
@@ -186,7 +202,6 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
             updatedAt: new Date().toISOString(),
           };
           await saveDraftLetter(draftToSave);
-          await saveLetter(draftToSave); // Ensure it also shows in Rekap Surat as Draft
           const now = new Date();
           setLastAutoSavedTime(
             `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(
@@ -201,10 +216,12 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
     }
   }, [formData]);
 
-  // 2. Intercept Android BACK button, browser back, window unload, and visibility change
+  // Intercept accidental Android BACK / unload without overwriting saved documents
   useEffect(() => {
     const saveCurrentAsDraft = async () => {
+      if (isSavedOrClearedRef.current || isEditingExistingRef.current) return;
       const cur = formDataRef.current;
+      if (JSON.stringify(cur) === initialSnapshotRef.current) return;
       const hasContent =
         cur.subject.trim() ||
         cur.companyName.trim() ||
@@ -237,7 +254,7 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
 
     const handlePopState = async () => {
       await saveCurrentAsDraft();
-      onToast('Surat tersimpan otomatis sebagai Draft di Rekap Surat');
+      onToast('Draft surat diamankan otomatis');
       window.history.pushState({ formDrafting: true }, '');
     };
 
@@ -249,7 +266,6 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
       window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('popstate', handlePopState);
-      saveCurrentAsDraft();
     };
   }, [onToast]);
 
@@ -566,7 +582,9 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
       onToast('Tujuan surat (Nama Pelanggan/Perusahaan) wajib diisi');
       return;
     }
+    isSavedOrClearedRef.current = true;
     await onSave(formData);
+    initialSnapshotRef.current = JSON.stringify(formData);
   };
 
   return (
@@ -611,7 +629,11 @@ export const FormTambahSurat: React.FC<FormTambahSuratProps> = ({
           {onResetToNew && (
             <button
               type="button"
-              onClick={onResetToNew}
+              onClick={() => {
+                isSavedOrClearedRef.current = true;
+                setLastAutoSavedTime('');
+                onResetToNew();
+              }}
               className="flex items-center gap-1 text-xs text-slate-600 hover:text-slate-900 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-2xs"
               title="Mulai Surat Baru"
             >

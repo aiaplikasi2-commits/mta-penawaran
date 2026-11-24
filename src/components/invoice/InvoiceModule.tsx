@@ -38,12 +38,15 @@ export const InvoiceModule: React.FC<InvoiceModuleProps> = ({
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderData[]>([]);
   const [activeView, setActiveView] = useState<'daftar' | 'form'>('daftar');
   const [editingInvoice, setEditingInvoice] = useState<InvoiceData | null>(null);
+  const [formKey, setFormKey] = useState(0);
   const [previewInvoice, setPreviewInvoice] = useState<InvoiceData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (initialEditingInvoice) {
+      localStorage.removeItem('MTA_INVOICE_DRAFT');
       setEditingInvoice(initialEditingInvoice);
+      setFormKey((k) => k + 1);
       setActiveView('form');
       onClearInitialInvoice?.();
     }
@@ -88,34 +91,38 @@ export const InvoiceModule: React.FC<InvoiceModuleProps> = ({
   }, []);
 
   const handleCreateNew = () => {
+    localStorage.removeItem('MTA_INVOICE_DRAFT');
     setEditingInvoice(null);
+    setFormKey((k) => k + 1);
     setActiveView('form');
   };
 
   const handleEdit = (inv: InvoiceData) => {
+    localStorage.removeItem('MTA_INVOICE_DRAFT');
     setEditingInvoice(inv);
+    setFormKey((k) => k + 1);
     setActiveView('form');
   };
 
   const handleDuplicate = async (inv: InvoiceData) => {
-    const nextSeq = invoices.length + 1;
     const duplicated: InvoiceData = {
       ...inv,
-      id: `inv-${Date.now()}`,
-      invoiceNumber: generateNomorInvoiceBaru(nextSeq),
+      id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+      invoiceNumber: generateNomorInvoiceBaru(invoices),
       invoiceDate: new Date().toISOString().slice(0, 10),
       status: 'Draft',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     await saveInvoice(duplicated);
-    await loadData();
+    setInvoices((prev) => [duplicated, ...prev.filter((i) => i.id !== duplicated.id)]);
     onToast(`Duplikasi #${duplicated.invoiceNumber} berhasil`);
   };
 
   const handleSaveInvoice = async (inv: InvoiceData) => {
     await saveInvoice(inv);
-    await loadData();
+    localStorage.removeItem('MTA_INVOICE_DRAFT');
+    setInvoices((prev) => [inv, ...prev.filter((i) => i.id !== inv.id)]);
     setActiveView('daftar');
     setEditingInvoice(null);
     onToast(`Invoice ${inv.invoiceNumber} disimpan`);
@@ -171,8 +178,7 @@ A/N ${inv.bankAccountName || settings.bankAccountName || 'CV. MULIA TEKHNIK ABAD
   }
 
   const handleSelectLetterForInvoice = (letter: LetterData) => {
-    const nextSeq = invoices.length + 1;
-    const invNumber = generateNomorInvoiceBaru(nextSeq);
+    const invNumber = generateNomorInvoiceBaru(invoices);
     const today = new Date().toISOString().slice(0, 10);
 
     const mappedItems: InvoiceItem[] = (letter.items || []).map((it, idx) => ({
@@ -193,7 +199,7 @@ A/N ${inv.bankAccountName || settings.bankAccountName || 'CV. MULIA TEKHNIK ABAD
     const total = Math.max(0, subtotal - tradeInVal);
 
     const converted: InvoiceData = {
-      id: `inv-${Date.now()}`,
+      id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       invoiceNumber: invNumber,
       invoiceDate: today,
       nomorPo: letter.subject || '',
@@ -220,14 +226,15 @@ A/N ${inv.bankAccountName || settings.bankAccountName || 'CV. MULIA TEKHNIK ABAD
       updatedAt: new Date().toISOString(),
     };
 
+    localStorage.removeItem('MTA_INVOICE_DRAFT');
     setEditingInvoice(converted);
+    setFormKey((k) => k + 1);
     setActiveView('form');
     onToast(`Data dari Surat Penawaran ${letter.letterNumber} berhasil dimuat!`);
   };
 
   const handleSelectPoForInvoice = (po: PurchaseOrderData) => {
-    const nextSeq = invoices.length + 1;
-    const invNumber = generateNomorInvoiceBaru(nextSeq);
+    const invNumber = generateNomorInvoiceBaru(invoices);
     const today = new Date().toISOString().slice(0, 10);
 
     const mappedItems: InvoiceItem[] = (po.items || []).map((it, idx) => {
@@ -253,7 +260,7 @@ A/N ${inv.bankAccountName || settings.bankAccountName || 'CV. MULIA TEKHNIK ABAD
     const total = Math.max(0, subtotal);
 
     const converted: InvoiceData = {
-      id: `inv-${Date.now()}`,
+      id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
       invoiceNumber: invNumber,
       invoiceDate: today,
       nomorPo: po.nomorPo || '',
@@ -292,7 +299,9 @@ A/N ${inv.bankAccountName || settings.bankAccountName || 'CV. MULIA TEKHNIK ABAD
       updatedAt: new Date().toISOString(),
     };
 
+    localStorage.removeItem('MTA_INVOICE_DRAFT');
     setEditingInvoice(converted);
+    setFormKey((k) => k + 1);
     setActiveView('form');
     onToast(`Data dari PO ${po.nomorPo} berhasil ditarik ke Invoice!`);
   };
@@ -319,7 +328,9 @@ A/N ${inv.bankAccountName || settings.bankAccountName || 'CV. MULIA TEKHNIK ABAD
 
       {activeView === 'form' && (
         <FormInvoice
+          key={formKey}
           initialInvoice={editingInvoice}
+          existingInvoices={invoices}
           settings={settings}
           customers={customers}
           letters={letters}

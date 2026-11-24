@@ -233,9 +233,6 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
               <span className="w-2 h-4 rounded-full bg-blue-600"></span>
               Logo, KOP &amp; Stempel
             </h3>
-            <span className="text-[11px] text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full font-semibold border border-blue-200/60">
-              3 Upload Terpisah
-            </span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
@@ -342,9 +339,6 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
                     </button>
                   ) : null}
                 </div>
-                <p className="text-[10.5px] text-slate-500 leading-tight">
-                  <strong className="text-sky-700">Khusus Surat Penawaran A4:</strong> Header KOP resmi dengan garis pembatas.
-                </p>
 
                 {/* Preview Box */}
                 <div className="mt-2.5 p-3 rounded-xl border border-slate-200 bg-slate-50/80 h-28 flex items-center justify-center">
@@ -724,13 +718,6 @@ export const Pengaturan: React.FC<PengaturanProps> = ({
       {/* BAGIAN 4: BACKUP DAN RESTORE DATA LENGKAP JSON */}
       {/* ============================================================== */}
       <div className="bg-gradient-to-br from-slate-900 to-[#0b223d] text-white rounded-2xl p-4 sm:p-5 shadow-lg space-y-3.5 text-xs mt-6">
-        <div className="flex items-center gap-2 pb-2 border-b border-white/10">
-          <DownloadCloud className="w-5 h-5 text-sky-400" />
-          <div>
-            <h3 className="font-bold text-sm text-white">Backup &amp; Restore Data Terintegrasi</h3>
-          </div>
-        </div>
-
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
           {/* Export / Backup */}
           <div className="p-3.5 rounded-xl bg-white/5 border border-white/10 flex flex-col justify-between space-y-2.5">

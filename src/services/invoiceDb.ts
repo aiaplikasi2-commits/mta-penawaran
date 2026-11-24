@@ -108,6 +108,26 @@ export function getInvoiceDb(): Promise<IDBPDatabase> {
   return dbPromise;
 }
 
+const PENDING_INVOICES_KEY = 'MTA_PENDING_INVOICES';
+
+function readPendingInvoices(): Set<string> {
+  try {
+    if (typeof window === 'undefined') return new Set();
+    const raw = localStorage.getItem(PENDING_INVOICES_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writePendingInvoices(set: Set<string>): void {
+  try {
+    if (typeof window === 'undefined') return;
+    if (set.size === 0) localStorage.removeItem(PENDING_INVOICES_KEY);
+    else localStorage.setItem(PENDING_INVOICES_KEY, JSON.stringify(Array.from(set)));
+  } catch {}
+}
+
 export async function getAllInvoices(): Promise<InvoiceData[]> {
   try {
     const { collection, getDocs } = await import('firebase/firestore');
@@ -115,41 +135,59 @@ export async function getAllInvoices(): Promise<InvoiceData[]> {
     const snap = await getDocs(collection(db, 'invoices'));
     const idbDb = await getInvoiceDb();
 
-    if (!snap.empty) {
-      const cloudList = snap.docs.map((d) => d.data() as InvoiceData);
-      cloudList.sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+    const pendingIds = readPendingInvoices();
+    const localBefore = await idbDb.getAll('invoices');
+    const cloudList = snap.empty ? [] : snap.docs.map((d) => d.data() as InvoiceData);
+    const cloudIds = new Set(cloudList.map((inv) => inv.id));
 
-      // Cleanly synchronize local IndexedDB with cloud truth
-      const tx = idbDb.transaction('invoices', 'readwrite');
-      await tx.store.clear();
-      for (const inv of cloudList) {
-        await tx.store.put(inv);
+    const pendingExtras: InvoiceData[] = [];
+    for (const loc of localBefore) {
+      if (pendingIds.has(loc.id) && !cloudIds.has(loc.id)) {
+        pendingExtras.push(loc);
+      } else if (pendingIds.has(loc.id) && cloudIds.has(loc.id)) {
+        pendingIds.delete(loc.id);
       }
-      await tx.done;
-
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('MTA_INVOICE_INIT', 'true');
-      }
-      return cloudList;
-    } else {
-      // Cloud database has 0 invoices (e.g. user deleted all invoices)
-      // Synchronize IDB to empty as well so deleted items never remain
-      const tx = idbDb.transaction('invoices', 'readwrite');
-      await tx.store.clear();
-      await tx.done;
-
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('MTA_INVOICE_INIT', 'true');
-      }
-      return [];
     }
+    writePendingInvoices(pendingIds);
+
+    if (pendingExtras.length > 0) {
+      import('./cloudSync.ts')
+        .then(({ saveInvoiceOnline }) => {
+          pendingExtras.forEach((item) => {
+            saveInvoiceOnline(item)
+              .then(() => {
+                const s = readPendingInvoices();
+                s.delete(item.id);
+                writePendingInvoices(s);
+              })
+              .catch(() => {});
+          });
+        })
+        .catch(() => {});
+    }
+
+    const merged = [...cloudList, ...pendingExtras].sort((a, b) =>
+      (b.createdAt || '').localeCompare(a.createdAt || '')
+    );
+
+    const tx = idbDb.transaction('invoices', 'readwrite');
+    await tx.store.clear();
+    for (const inv of merged) {
+      await tx.store.put(inv);
+    }
+    await tx.done;
+
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('MTA_INVOICE_INIT', 'true');
+    }
+    return merged;
   } catch (e) {
     console.warn('Fallback to local Invoice cache:', e);
   }
 
   const db = await getInvoiceDb();
   const list = await db.getAll('invoices');
-  
+
   // Only inject seed invoice on the absolute first launch if never initialized
   if ((!list || list.length === 0) && typeof window !== 'undefined' && !localStorage.getItem('MTA_INVOICE_INIT')) {
     localStorage.setItem('MTA_INVOICE_INIT', 'true');
@@ -183,15 +221,26 @@ export async function saveInvoice(invoice: InvoiceData): Promise<void> {
   const db = await getInvoiceDb();
   await db.put('invoices', toSave);
 
+  const pending = readPendingInvoices();
+  pending.add(toSave.id);
+  writePendingInvoices(pending);
+
   try {
     const { saveInvoiceOnline } = await import('./cloudSync.ts');
     await saveInvoiceOnline(toSave);
+    const updatedPending = readPendingInvoices();
+    updatedPending.delete(toSave.id);
+    writePendingInvoices(updatedPending);
   } catch (err) {
     console.warn('Online sync queued for Invoice:', err);
   }
 }
 
 export async function deleteInvoice(id: string): Promise<void> {
+  const pending = readPendingInvoices();
+  pending.delete(id);
+  writePendingInvoices(pending);
+
   const db = await getInvoiceDb();
   await db.delete('invoices', id);
 
@@ -203,12 +252,28 @@ export async function deleteInvoice(id: string): Promise<void> {
   }
 }
 
-// Generate new invoice number
-export function generateNomorInvoiceBaru(seq: number = 1): string {
+// Generate new unique invoice number
+export function generateNomorInvoiceBaru(seqOrExisting: number | InvoiceData[] = 1): string {
   const romawi = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
   const now = new Date();
   const bulanRomawi = romawi[now.getMonth()] || 'XI';
   const tahun = now.getFullYear();
-  const padded = String(seq).padStart(3, '0');
+
+  if (Array.isArray(seqOrExisting)) {
+    const existingSet = new Set(
+      seqOrExisting.map((inv) => (inv.invoiceNumber || '').trim().toLowerCase())
+    );
+    let seq = 1;
+    while (seq <= 9999) {
+      const candidate = `INV/${String(seq).padStart(3, '0')}/${bulanRomawi}/${tahun}`;
+      if (!existingSet.has(candidate.toLowerCase())) {
+        return candidate;
+      }
+      seq++;
+    }
+    return `INV/${String(Date.now()).slice(-3)}/${bulanRomawi}/${tahun}`;
+  }
+
+  const padded = String(seqOrExisting).padStart(3, '0');
   return `INV/${padded}/${bulanRomawi}/${tahun}`;
 }

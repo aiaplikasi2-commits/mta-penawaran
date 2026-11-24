@@ -100,6 +100,27 @@ export async function saveCompanySettings(settings: CompanySettings): Promise<vo
   }
 }
 
+const PENDING_LETTERS_KEY = 'MTA_PENDING_LETTERS';
+const PENDING_CUSTOMERS_KEY = 'MTA_PENDING_CUSTOMERS';
+
+function readPendingSet(key: string): Set<string> {
+  try {
+    if (typeof window === 'undefined') return new Set();
+    const raw = localStorage.getItem(key);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+function writePendingSet(key: string, set: Set<string>): void {
+  try {
+    if (typeof window === 'undefined') return;
+    if (set.size === 0) localStorage.removeItem(key);
+    else localStorage.setItem(key, JSON.stringify(Array.from(set)));
+  } catch {}
+}
+
 // Letters methods
 export async function getAllLetters(): Promise<LetterData[]> {
   try {
@@ -108,26 +129,50 @@ export async function getAllLetters(): Promise<LetterData[]> {
     const snap = await getDocs(collection(db, 'letters'));
     const idbDb = await getDb();
 
-    if (!snap.empty) {
-      const cloudList = snap.docs.map((d) => d.data() as LetterData);
-      cloudList.sort(
-        (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-      );
-      // Cleanly synchronize local cache
-      const tx = idbDb.transaction('letters', 'readwrite');
-      await tx.store.clear();
-      for (const l of cloudList) {
-        await tx.store.put(l);
+    const pendingIds = readPendingSet(PENDING_LETTERS_KEY);
+    const localBefore = await idbDb.getAll('letters');
+    const cloudList = snap.empty ? [] : snap.docs.map((d) => d.data() as LetterData);
+    const cloudIds = new Set(cloudList.map((l) => l.id));
+
+    // Preserve any locally saved letters that have not yet landed in cloud
+    const pendingExtras: LetterData[] = [];
+    for (const loc of localBefore) {
+      if (pendingIds.has(loc.id) && !cloudIds.has(loc.id)) {
+        pendingExtras.push(loc);
+      } else if (pendingIds.has(loc.id) && cloudIds.has(loc.id)) {
+        pendingIds.delete(loc.id);
       }
-      await tx.done;
-      return cloudList;
-    } else {
-      // 0 letters in cloud database
-      const tx = idbDb.transaction('letters', 'readwrite');
-      await tx.store.clear();
-      await tx.done;
-      return [];
     }
+    writePendingSet(PENDING_LETTERS_KEY, pendingIds);
+
+    // Retry syncing pending items in background
+    if (pendingExtras.length > 0) {
+      import('./cloudSync.ts')
+        .then(({ saveLetterOnline }) => {
+          pendingExtras.forEach((item) => {
+            saveLetterOnline(item)
+              .then(() => {
+                const s = readPendingSet(PENDING_LETTERS_KEY);
+                s.delete(item.id);
+                writePendingSet(PENDING_LETTERS_KEY, s);
+              })
+              .catch(() => {});
+          });
+        })
+        .catch(() => {});
+    }
+
+    const merged = [...cloudList, ...pendingExtras].sort(
+      (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+    );
+
+    const tx = idbDb.transaction('letters', 'readwrite');
+    await tx.store.clear();
+    for (const l of merged) {
+      await tx.store.put(l);
+    }
+    await tx.done;
+    return merged;
   } catch (e) {
     console.warn('Fallback to local letters cache:', e);
   }
@@ -162,16 +207,27 @@ export async function saveLetter(letter: LetterData): Promise<void> {
   const idbDb = await getDb();
   await idbDb.put('letters', toSave);
 
+  const pending = readPendingSet(PENDING_LETTERS_KEY);
+  pending.add(toSave.id);
+  writePendingSet(PENDING_LETTERS_KEY, pending);
+
   // Push to Firestore Cloud Database
   try {
     const { saveLetterOnline } = await import('./cloudSync.ts');
     await saveLetterOnline(toSave);
+    const updatedPending = readPendingSet(PENDING_LETTERS_KEY);
+    updatedPending.delete(toSave.id);
+    writePendingSet(PENDING_LETTERS_KEY, updatedPending);
   } catch (err) {
     console.warn('Online sync queued for letter:', err);
   }
 }
 
 export async function deleteLetter(id: string): Promise<void> {
+  const pending = readPendingSet(PENDING_LETTERS_KEY);
+  pending.delete(id);
+  writePendingSet(PENDING_LETTERS_KEY, pending);
+
   const idbDb = await getDb();
   await idbDb.delete('letters', id);
 
@@ -192,28 +248,34 @@ export async function getAllCustomers(): Promise<Customer[]> {
     const snap = await getDocs(collection(db, 'customers'));
     const idbDb = await getDb();
 
-    if (!snap.empty) {
-      const cloudList = snap.docs.map((d) => d.data() as Customer);
-      cloudList.sort((a, b) =>
-        (a.companyName || a.recipientName || '').localeCompare(
-          b.companyName || b.recipientName || ''
-        )
-      );
-      // Cleanly synchronize local cache
-      const tx = idbDb.transaction('customers', 'readwrite');
-      await tx.store.clear();
-      for (const c of cloudList) {
-        await tx.store.put(c);
+    const pendingIds = readPendingSet(PENDING_CUSTOMERS_KEY);
+    const localBefore = await idbDb.getAll('customers');
+    const cloudList = snap.empty ? [] : snap.docs.map((d) => d.data() as Customer);
+    const cloudIds = new Set(cloudList.map((c) => c.id));
+
+    const pendingExtras: Customer[] = [];
+    for (const loc of localBefore) {
+      if (pendingIds.has(loc.id) && !cloudIds.has(loc.id)) {
+        pendingExtras.push(loc);
+      } else if (pendingIds.has(loc.id) && cloudIds.has(loc.id)) {
+        pendingIds.delete(loc.id);
       }
-      await tx.done;
-      return cloudList;
-    } else {
-      // 0 customers in cloud database
-      const tx = idbDb.transaction('customers', 'readwrite');
-      await tx.store.clear();
-      await tx.done;
-      return [];
     }
+    writePendingSet(PENDING_CUSTOMERS_KEY, pendingIds);
+
+    const merged = [...cloudList, ...pendingExtras].sort((a, b) =>
+      (a.companyName || a.recipientName || '').localeCompare(
+        b.companyName || b.recipientName || ''
+      )
+    );
+
+    const tx = idbDb.transaction('customers', 'readwrite');
+    await tx.store.clear();
+    for (const c of merged) {
+      await tx.store.put(c);
+    }
+    await tx.done;
+    return merged;
   } catch (e) {
     console.warn('Fallback to local customers cache:', e);
   }
@@ -231,10 +293,17 @@ export async function saveCustomer(customer: Customer): Promise<void> {
   const idbDb = await getDb();
   await idbDb.put('customers', customer);
 
+  const pending = readPendingSet(PENDING_CUSTOMERS_KEY);
+  pending.add(customer.id);
+  writePendingSet(PENDING_CUSTOMERS_KEY, pending);
+
   // Push to Firestore Cloud Database
   try {
     const { saveCustomerOnline } = await import('./cloudSync.ts');
     await saveCustomerOnline(customer);
+    const updatedPending = readPendingSet(PENDING_CUSTOMERS_KEY);
+    updatedPending.delete(customer.id);
+    writePendingSet(PENDING_CUSTOMERS_KEY, updatedPending);
   } catch (err) {
     console.warn('Online sync queued for customer:', err);
   }
@@ -267,6 +336,10 @@ export async function saveBatchCustomers(newCustomers: Customer[]): Promise<numb
 }
 
 export async function deleteCustomer(id: string): Promise<void> {
+  const pending = readPendingSet(PENDING_CUSTOMERS_KEY);
+  pending.delete(id);
+  writePendingSet(PENDING_CUSTOMERS_KEY, pending);
+
   const idbDb = await getDb();
   await idbDb.delete('customers', id);
 

@@ -52,6 +52,7 @@ export const SalaryModule: React.FC<SalaryModuleProps> = ({
   );
   const [previewSlip, setPreviewSlip] = useState<SlipGaji | null>(null);
   const [selectedKaryawanForSlip, setSelectedKaryawanForSlip] = useState<Karyawan | null>(null);
+  const [formKey, setFormKey] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   const loadData = async () => {
@@ -113,7 +114,7 @@ export const SalaryModule: React.FC<SalaryModuleProps> = ({
   // Handlers for Karyawan
   const handleSaveKaryawan = async (emp: Karyawan) => {
     await saveKaryawan(emp);
-    await loadData();
+    setKaryawanList((prev) => [emp, ...prev.filter((k) => k.id !== emp.id)]);
   };
 
   const handleDeleteKaryawan = async (id: string) => {
@@ -128,6 +129,7 @@ export const SalaryModule: React.FC<SalaryModuleProps> = ({
 
   const handleCreateSlipForKaryawan = (emp: Karyawan) => {
     setSelectedKaryawanForSlip(emp);
+    setFormKey((k) => k + 1);
     setActiveSalaryTab('buat-slip');
     onToast(`Menyiapkan slip gaji untuk ${emp.nama}`);
   };
@@ -135,7 +137,9 @@ export const SalaryModule: React.FC<SalaryModuleProps> = ({
   // Handlers for Slips
   const handleSaveSlip = async (slip: SlipGaji) => {
     await saveSlip(slip);
-    await loadData();
+    setSlips((prev) => [slip, ...prev.filter((s) => s.id !== slip.id)]);
+    setSelectedKaryawanForSlip(null);
+    setFormKey((k) => k + 1);
     onToast(`Slip gaji #${slip.nomorSlip} (${slip.nama}) berhasil disimpan!`);
     // Open preview directly
     setPreviewSlip(slip);
@@ -183,7 +187,11 @@ export const SalaryModule: React.FC<SalaryModuleProps> = ({
             {/* Tab 1: Slip Gaji */}
             <button
               type="button"
-              onClick={() => setActiveSalaryTab('buat-slip')}
+              onClick={() => {
+                setSelectedKaryawanForSlip(null);
+                setFormKey((k) => k + 1);
+                setActiveSalaryTab('buat-slip');
+              }}
               className={`flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-bold transition whitespace-nowrap ${
                 activeSalaryTab === 'buat-slip'
                   ? 'bg-blue-600 text-white shadow-xs'
@@ -243,6 +251,7 @@ export const SalaryModule: React.FC<SalaryModuleProps> = ({
       <div className="pt-2">
         {activeSalaryTab === 'buat-slip' && (
           <FormSlipGaji
+            key={formKey}
             karyawanList={karyawanList}
             settings={salarySettings}
             selectedKaryawanForSlip={selectedKaryawanForSlip}
@@ -301,6 +310,7 @@ export const SalaryModule: React.FC<SalaryModuleProps> = ({
           type="button"
           onClick={() => {
             setSelectedKaryawanForSlip(null);
+            setFormKey((k) => k + 1);
             setActiveSalaryTab('buat-slip');
           }}
           className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 sm:right-6 z-30 flex items-center gap-2 px-4 py-3 min-h-[48px] bg-[#0b223d] hover:bg-blue-900 active:scale-95 text-white font-extrabold text-xs rounded-full shadow-[0_8px_24px_rgba(11,34,61,0.38)] border border-sky-400/40 transition-transform"

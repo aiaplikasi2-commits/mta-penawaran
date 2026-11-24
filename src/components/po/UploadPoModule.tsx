@@ -358,6 +358,7 @@ export const UploadPoModule: React.FC<UploadPoModuleProps> = ({
 
   const handleSavePo = async (dataToSave: PurchaseOrderData) => {
     await savePurchaseOrder(dataToSave);
+    setSavedPos((prev) => [dataToSave, ...prev.filter((p) => p.id !== dataToSave.id)]);
     setSaveSuccessMsg(`Purchase Order "${dataToSave.nomorPo}" berhasil disimpan ke Cloud Database!`);
     setExtractedData(null);
     setSelectedFiles([]);
@@ -418,6 +419,9 @@ export const UploadPoModule: React.FC<UploadPoModuleProps> = ({
           type="button"
           onClick={() => {
             setActiveTab('upload');
+            setExtractedData(null);
+            setExtractError(null);
+            setSelectedFiles([]);
             setSaveSuccessMsg(null);
           }}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm transition ${

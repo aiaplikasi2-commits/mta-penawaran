@@ -97,151 +97,24 @@ export const FormBast: React.FC<FormBastProps> = ({
   const [status, setStatus] = useState<'Draft' | 'Selesai'>(initialBast?.status || 'Selesai');
   const [isSaving, setIsSaving] = useState(false);
   const [savedPos, setSavedPos] = useState<any[]>([]);
-  const [hasRestoredDraft, setHasRestoredDraft] = useState(false);
-
-  const BAST_DRAFT_KEY = 'MTA_BAST_DRAFT';
-  const justSavedRef = useRef(false);
-  const latestDraftRef = useRef<{ hasData: boolean; getObj: () => BastData }>({
-    hasData: false,
-    getObj: () => ({} as BastData),
-  });
+  const draftIdRef = useRef<string>(
+    initialBast?.id || `bast_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`
+  );
 
   useEffect(() => {
+    if (initialBast?.id) {
+      draftIdRef.current = initialBast.id;
+    }
+  }, [initialBast?.id]);
+
+  useEffect(() => {
+    localStorage.removeItem('MTA_BAST_DRAFT');
     getAllPurchaseOrders().then((list) => {
       if (list && list.length > 0) {
         setSavedPos(list);
       }
     });
   }, []);
-
-  // Auto-restore draft if creating a new BAST and draft exists
-  useEffect(() => {
-    if (!initialBast) {
-      try {
-        const raw = localStorage.getItem(BAST_DRAFT_KEY);
-        if (raw) {
-          const draft = JSON.parse(raw);
-          if (
-            draft &&
-            (draft.nomorPo ||
-              draft.pihakPertamaPerusahaan ||
-              draft.pihakPertamaNama ||
-              draft.items?.some((i: any) => i.name))
-          ) {
-            if (draft.nomorBast) setNomorBast(draft.nomorBast);
-            if (draft.nomorPo) setNomorPo(draft.nomorPo);
-            if (draft.tanggalBast) {
-              setTanggalBast(draft.tanggalBast);
-              setHariTerbilang(draft.hariTerbilang || generateHariTerbilang(draft.tanggalBast));
-            }
-            if (draft.pihakPertamaNama) setPihakPertamaNama(draft.pihakPertamaNama);
-            if (draft.pihakPertamaJabatan) setPihakPertamaJabatan(draft.pihakPertamaJabatan);
-            if (draft.pihakPertamaPerusahaan) setPihakPertamaPerusahaan(draft.pihakPertamaPerusahaan);
-            if (draft.pihakPertamaAlamat) setPihakPertamaAlamat(draft.pihakPertamaAlamat);
-            if (draft.items && draft.items.length > 0) setItems(draft.items);
-            if (draft.tanggalMulai) setTanggalMulai(draft.tanggalMulai);
-            if (draft.tanggalSelesai) setTanggalSelesai(draft.tanggalSelesai);
-            if (draft.kota) setKota(draft.kota);
-            setHasRestoredDraft(true);
-            onToast('Draft BAST sebelumnya dipulihkan');
-          }
-        }
-      } catch (e) {
-        console.warn('Error reading BAST draft:', e);
-      }
-    }
-  }, [initialBast]);
-
-  // Keep latest draft snapshot updated and debounce auto-save
-  const hasDraftContent = Boolean(
-    nomorPo.trim() ||
-      pihakPertamaPerusahaan.trim() ||
-      pihakPertamaNama.trim() ||
-      items.some((it) => it.name.trim())
-  );
-
-  latestDraftRef.current = {
-    hasData: hasDraftContent && !initialBast,
-    getObj: () => getCurrentBastObject(),
-  };
-
-  useEffect(() => {
-    if (!initialBast && hasDraftContent) {
-      const timer = setTimeout(() => {
-        try {
-          const current = getCurrentBastObject();
-          localStorage.setItem(BAST_DRAFT_KEY, JSON.stringify(current));
-        } catch (e) {
-          console.warn('Draft save error', e);
-        }
-      }, 700);
-      return () => clearTimeout(timer);
-    }
-  }, [
-    initialBast,
-    hasDraftContent,
-    nomorBast,
-    nomorPo,
-    tanggalBast,
-    hariTerbilang,
-    pihakPertamaNama,
-    pihakPertamaJabatan,
-    pihakPertamaPerusahaan,
-    pihakPertamaAlamat,
-    items,
-    tanggalMulai,
-    tanggalSelesai,
-    kota,
-  ]);
-
-  // Flush draft immediately when navigating away via BottomNav/Sidebar/Back or tab hide
-  useEffect(() => {
-    const flushDraft = () => {
-      if (!justSavedRef.current && latestDraftRef.current.hasData) {
-        try {
-          localStorage.setItem(BAST_DRAFT_KEY, JSON.stringify(latestDraftRef.current.getObj()));
-        } catch (e) {
-          console.warn('Draft flush error', e);
-        }
-      }
-    };
-    const handleVisibility = () => {
-      if (document.visibilityState === 'hidden') flushDraft();
-    };
-    window.addEventListener('beforeunload', flushDraft);
-    document.addEventListener('visibilitychange', handleVisibility);
-    return () => {
-      window.removeEventListener('beforeunload', flushDraft);
-      document.removeEventListener('visibilitychange', handleVisibility);
-      flushDraft();
-    };
-  }, []);
-
-  // Handle Back with automatic draft save
-  const handleBackWithDraft = () => {
-    if (!initialBast && hasDraftContent) {
-      try {
-        localStorage.setItem(BAST_DRAFT_KEY, JSON.stringify(getCurrentBastObject()));
-        onToast('Tersimpan sebagai draft BAST');
-      } catch (e) {
-        console.warn('Draft save on back error', e);
-      }
-    }
-    onBack();
-  };
-
-  const handleClearDraft = () => {
-    localStorage.removeItem(BAST_DRAFT_KEY);
-    latestDraftRef.current.hasData = false;
-    setHasRestoredDraft(false);
-    setNomorPo('');
-    setPihakPertamaNama('');
-    setPihakPertamaJabatan('');
-    setPihakPertamaPerusahaan('');
-    setPihakPertamaAlamat('');
-    setItems([{ id: `item-${Date.now()}-1`, name: '', keterangan: 'Sesuai' }]);
-    onToast('Draft BAST direset');
-  };
 
   // Automatically update hariTerbilang when tanggalBast changes
   const handleDateChange = (val: string) => {
@@ -415,7 +288,7 @@ export const FormBast: React.FC<FormBastProps> = ({
   // Build current BAST object
   const getCurrentBastObject = (): BastData => {
     return {
-      id: initialBast?.id || `bast-${Date.now()}`,
+      id: initialBast?.id || draftIdRef.current,
       nomorBast: nomorBast.trim(),
       nomorPo: nomorPo.trim(),
       tanggalBast,
@@ -454,12 +327,8 @@ export const FormBast: React.FC<FormBastProps> = ({
     try {
       setIsSaving(true);
       const toSave = getCurrentBastObject();
-      justSavedRef.current = true;
       await onSave(toSave);
-      localStorage.removeItem(BAST_DRAFT_KEY);
-      onToast(`Dokumen ${toSave.nomorBast} berhasil disimpan!`);
     } catch {
-      justSavedRef.current = false;
       onToast('Gagal menyimpan dokumen BAST');
     } finally {
       setIsSaving(false);
@@ -473,29 +342,15 @@ export const FormBast: React.FC<FormBastProps> = ({
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={handleBackWithDraft}
+            onClick={onBack}
             className="p-2 rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition"
-            title="Kembali (otomatis jadi draft)"
+            title="Kembali"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
           <h2 className="text-base font-bold text-[#0b223d]">
             {initialBast ? `Edit BAST: ${initialBast.nomorBast}` : 'Buat BAST Baru'}
           </h2>
-          {hasRestoredDraft && !initialBast && (
-            <div className="flex items-center gap-1.5 ml-2">
-              <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-2 py-0.5 rounded-md border border-amber-300">
-                Draft Aktif
-              </span>
-              <button
-                type="button"
-                onClick={handleClearDraft}
-                className="text-[10px] text-slate-500 hover:text-rose-600 underline font-semibold"
-              >
-                Reset Baru
-              </button>
-            </div>
-          )}
         </div>
 
         <button
